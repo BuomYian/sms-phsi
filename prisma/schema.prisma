@@ -1,0 +1,633 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ===========================
+// ENUMS
+// ===========================
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  FINANCE
+  INSTRUCTOR
+  STUDENT
+  PARENT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum StudentStatus {
+  ACTIVE
+  SUSPENDED
+  WITHDRAWN
+  GRADUATED
+  DEFERRED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum GradeStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PUBLISHED
+}
+
+enum EnrollmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CONDITIONAL
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_MONEY
+}
+
+enum FeeCategory {
+  TUITION
+  REGISTRATION
+  LAB_FEE
+  LIBRARY_FEE
+  CLINICAL_ATTACHMENT
+  EXAMINATION
+  ID_CARD
+  OTHER
+}
+
+enum SubjectType {
+  CORE
+  ELECTIVE
+}
+
+enum Currency {
+  SSP
+  USD
+}
+
+enum AdmissionType {
+  REGULAR
+  TRANSFER
+  MATURE_ENTRY
+}
+
+// ===========================
+// USER & AUTH
+// ===========================
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role
+  fullName     String   @map("full_name")
+  phone        String?
+  avatarUrl    String?  @map("avatar_url")
+  isActive     Boolean  @default(true) @map("is_active")
+  securityQuestion String? @map("security_question")
+  securityAnswer   String? @map("security_answer")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  student          Student?
+  staff            Staff?
+  auditLogs        AuditLog[]
+  announcements    Announcement[]     @relation("AnnouncementAuthor")
+  sentMessages     Message[]          @relation("SentMessages")
+  receivedMessages Message[]          @relation("ReceivedMessages")
+  attendanceMarked Attendance[]       @relation("AttendanceMarker")
+  gradesSubmitted  Grade[]            @relation("GradeSubmitter")
+  gradesApproved   Grade[]            @relation("GradeApprover")
+  paymentsRecorded Payment[]          @relation("PaymentRecorder")
+  enrollmentsApproved Enrollment[]    @relation("EnrollmentApprover")
+  parentLinks      ParentStudent[]    @relation("ParentUser")
+
+  @@map("users")
+}
+
+// ===========================
+// STUDENT
+// ===========================
+
+model Student {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String        @unique @map("user_id") @db.Uuid
+  studentIdNumber   String        @unique @map("student_id_number")
+  programId         String        @map("program_id") @db.Uuid
+  admissionDate     DateTime      @map("admission_date")
+  yearOfStudy       Int           @default(1) @map("year_of_study")
+  status            StudentStatus @default(ACTIVE)
+  gender            Gender
+  dob               DateTime
+  nationality       String        @default("South Sudanese")
+  nationalId        String?       @map("national_id")
+  address           String?
+  stateCounty       String?       @map("state_county")
+  bloodType         String?       @map("blood_type")
+  allergies         String?
+  disabilities      String?
+  medicalNotes      String?       @map("medical_notes")
+  emergencyContact  String?       @map("emergency_contact")
+  guardianName      String?       @map("guardian_name")
+  guardianPhone     String?       @map("guardian_phone")
+  guardianEmail     String?       @map("guardian_email")
+  guardianRelationship String?    @map("guardian_relationship")
+  guardianAddress   String?       @map("guardian_address")
+  previousSchool    String?       @map("previous_school")
+  previousQualification String?   @map("previous_qualification")
+  previousGradYear  Int?          @map("previous_grad_year")
+  admissionType     AdmissionType @default(REGULAR) @map("admission_type")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program           Program       @relation(fields: [programId], references: [id])
+  enrollments       Enrollment[]
+  studentFees       StudentFee[]
+  payments          Payment[]
+  scholarships      Scholarship[]
+  documents         Document[]
+  parentLinks       ParentStudent[] @relation("StudentChild")
+
+  @@map("students")
+}
+
+model ParentStudent {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId  String @map("parent_id") @db.Uuid
+  studentId String @map("student_id") @db.Uuid
+
+  parent    User    @relation("ParentUser", fields: [parentId], references: [id], onDelete: Cascade)
+  student   Student @relation("StudentChild", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+  @@map("parent_students")
+}
+
+// ===========================
+// STAFF
+// ===========================
+
+model Staff {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String         @unique @map("user_id") @db.Uuid
+  staffIdNumber   String         @unique @map("staff_id_number")
+  departmentId    String?        @map("department_id") @db.Uuid
+  designation     String
+  employmentType  EmploymentType @default(FULL_TIME) @map("employment_type")
+  dateOfHire      DateTime       @map("date_of_hire")
+  salary          Decimal?       @db.Decimal(12, 2)
+  qualifications  String?
+  gender          Gender?
+  dob             DateTime?
+  nationality     String?        @default("South Sudanese")
+  nationalId      String?        @map("national_id")
+  address         String?
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department      Department?    @relation("StaffDepartment", fields: [departmentId], references: [id])
+  subjectInstructors SubjectInstructor[]
+  timetableEntries   TimetableEntry[]
+  headOfDepartments  Department[] @relation("DepartmentHead")
+
+  @@map("staff")
+}
+
+model Department {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String   @unique
+  code                String?  @unique
+  headOfDepartmentId  String?  @map("head_of_department_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  headOfDepartment    Staff?   @relation("DepartmentHead", fields: [headOfDepartmentId], references: [id])
+  staff               Staff[]  @relation("StaffDepartment")
+  programs            Program[]
+
+  @@map("departments")
+}
+
+// ===========================
+// ACADEMIC
+// ===========================
+
+model Program {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  code              String   @unique
+  durationSemesters Int      @map("duration_semesters")
+  totalCredits      Int      @map("total_credits")
+  departmentId      String   @map("department_id") @db.Uuid
+  description       String?
+  entryRequirements String?  @map("entry_requirements")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  department        Department   @relation(fields: [departmentId], references: [id])
+  subjects          Subject[]
+  students          Student[]
+  feeStructures     FeeStructure[]
+  announcements     Announcement[]
+
+  @@map("programs")
+}
+
+model Subject {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  code            String      @unique
+  creditHours     Int         @map("credit_hours")
+  programId       String      @map("program_id") @db.Uuid
+  semesterNumber  Int         @map("semester_number")
+  type            SubjectType @default(CORE)
+  description     String?
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  program         Program     @relation(fields: [programId], references: [id])
+  instructors     SubjectInstructor[]
+  courseEnrollments CourseEnrollment[]
+  timetableEntries TimetableEntry[]
+  examSchedules    ExamSchedule[]
+  prerequisites    SubjectPrerequisite[] @relation("SubjectMain")
+  prerequisiteOf   SubjectPrerequisite[] @relation("SubjectPrereq")
+
+  @@map("subjects")
+}
+
+model SubjectPrerequisite {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectId      String @map("subject_id") @db.Uuid
+  prerequisiteId String @map("prerequisite_id") @db.Uuid
+
+  subject        Subject @relation("SubjectMain", fields: [subjectId], references: [id], onDelete: Cascade)
+  prerequisite   Subject @relation("SubjectPrereq", fields: [prerequisiteId], references: [id], onDelete: Cascade)
+
+  @@unique([subjectId, prerequisiteId])
+  @@map("subject_prerequisites")
+}
+
+model SubjectInstructor {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectId      String @map("subject_id") @db.Uuid
+  staffId        String @map("staff_id") @db.Uuid
+  academicYearId String @map("academic_year_id") @db.Uuid
+  semesterId     String @map("semester_id") @db.Uuid
+
+  subject        Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  staff          Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  semester       Semester     @relation(fields: [semesterId], references: [id])
+
+  @@unique([subjectId, staffId, semesterId])
+  @@map("subject_instructors")
+}
+
+model AcademicYear {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @unique
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  isCurrent Boolean  @default(false) @map("is_current")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  semesters          Semester[]
+  subjectInstructors SubjectInstructor[]
+  feeStructures      FeeStructure[]
+
+  @@map("academic_years")
+}
+
+model Semester {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  name           String
+  startDate      DateTime @map("start_date")
+  endDate        DateTime @map("end_date")
+  isCurrent      Boolean  @default(false) @map("is_current")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  academicYear       AcademicYear       @relation(fields: [academicYearId], references: [id])
+  enrollments        Enrollment[]
+  subjectInstructors SubjectInstructor[]
+  timetableEntries   TimetableEntry[]
+  feeStructures      FeeStructure[]
+  examSchedules      ExamSchedule[]
+
+  @@unique([academicYearId, name])
+  @@map("semesters")
+}
+
+// ===========================
+// ENROLLMENT
+// ===========================
+
+model Enrollment {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId        String           @map("student_id") @db.Uuid
+  semesterId       String           @map("semester_id") @db.Uuid
+  status           EnrollmentStatus @default(PENDING)
+  registrationDate DateTime         @default(now()) @map("registration_date")
+  approvedBy       String?          @map("approved_by") @db.Uuid
+  approvedDate     DateTime?        @map("approved_date")
+  notes            String?
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  student          Student          @relation(fields: [studentId], references: [id])
+  semester         Semester         @relation(fields: [semesterId], references: [id])
+  approver         User?            @relation("EnrollmentApprover", fields: [approvedBy], references: [id])
+  courseEnrollments CourseEnrollment[]
+
+  @@unique([studentId, semesterId])
+  @@map("enrollments")
+}
+
+model CourseEnrollment {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enrollmentId String @map("enrollment_id") @db.Uuid
+  subjectId    String @map("subject_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  subject      Subject    @relation(fields: [subjectId], references: [id])
+  attendances  Attendance[]
+  grade        Grade?
+
+  @@unique([enrollmentId, subjectId])
+  @@map("course_enrollments")
+}
+
+// ===========================
+// TIMETABLE
+// ===========================
+
+model TimetableEntry {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectId    String   @map("subject_id") @db.Uuid
+  instructorId String   @map("instructor_id") @db.Uuid
+  semesterId   String   @map("semester_id") @db.Uuid
+  dayOfWeek    Int      @map("day_of_week")
+  startTime    String   @map("start_time")
+  endTime      String   @map("end_time")
+  room         String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  subject      Subject  @relation(fields: [subjectId], references: [id])
+  instructor   Staff    @relation(fields: [instructorId], references: [id])
+  semester     Semester @relation(fields: [semesterId], references: [id])
+
+  @@map("timetable_entries")
+}
+
+// ===========================
+// ATTENDANCE
+// ===========================
+
+model Attendance {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseEnrollmentId  String           @map("course_enrollment_id") @db.Uuid
+  date               DateTime
+  status             AttendanceStatus
+  markedBy           String           @map("marked_by") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at")
+
+  courseEnrollment    CourseEnrollment @relation(fields: [courseEnrollmentId], references: [id], onDelete: Cascade)
+  marker             User             @relation("AttendanceMarker", fields: [markedBy], references: [id])
+
+  @@unique([courseEnrollmentId, date])
+  @@map("attendance")
+}
+
+// ===========================
+// GRADES
+// ===========================
+
+model Grade {
+  id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseEnrollmentId  String      @unique @map("course_enrollment_id") @db.Uuid
+  caMarks            Float?      @map("ca_marks")
+  examMarks          Float?      @map("exam_marks")
+  totalMarks         Float?      @map("total_marks")
+  gradeLetter        String?     @map("grade_letter")
+  gpaPoints          Float?      @map("gpa_points")
+  status             GradeStatus @default(DRAFT)
+  submittedBy        String?     @map("submitted_by") @db.Uuid
+  approvedBy         String?     @map("approved_by") @db.Uuid
+  submittedDate      DateTime?   @map("submitted_date")
+  approvedDate       DateTime?   @map("approved_date")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  courseEnrollment    CourseEnrollment @relation(fields: [courseEnrollmentId], references: [id], onDelete: Cascade)
+  submitter          User?            @relation("GradeSubmitter", fields: [submittedBy], references: [id])
+  approver           User?            @relation("GradeApprover", fields: [approvedBy], references: [id])
+
+  @@map("grades")
+}
+
+model ExamSchedule {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectId  String   @map("subject_id") @db.Uuid
+  semesterId String   @map("semester_id") @db.Uuid
+  date       DateTime
+  startTime  String   @map("start_time")
+  endTime    String   @map("end_time")
+  venue      String
+  duration   Int
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  subject    Subject  @relation(fields: [subjectId], references: [id])
+  semester   Semester @relation(fields: [semesterId], references: [id])
+
+  @@map("exam_schedules")
+}
+
+// ===========================
+// FEES & FINANCE
+// ===========================
+
+model FeeStructure {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  programId      String      @map("program_id") @db.Uuid
+  academicYearId String      @map("academic_year_id") @db.Uuid
+  semesterId     String      @map("semester_id") @db.Uuid
+  category       FeeCategory
+  amount         Decimal     @db.Decimal(12, 2)
+  currency       Currency    @default(SSP)
+  description    String?
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  program        Program      @relation(fields: [programId], references: [id])
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  semester       Semester     @relation(fields: [semesterId], references: [id])
+  studentFees    StudentFee[]
+
+  @@map("fee_structures")
+}
+
+model StudentFee {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId       String    @map("student_id") @db.Uuid
+  feeStructureId  String    @map("fee_structure_id") @db.Uuid
+  amountCharged   Decimal   @map("amount_charged") @db.Decimal(12, 2)
+  amountPaid      Decimal   @default(0) @map("amount_paid") @db.Decimal(12, 2)
+  balance         Decimal   @db.Decimal(12, 2)
+  status          String    @default("UNPAID")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  student         Student      @relation(fields: [studentId], references: [id])
+  feeStructure    FeeStructure @relation(fields: [feeStructureId], references: [id])
+
+  @@map("student_fees")
+}
+
+model Payment {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId       String        @map("student_id") @db.Uuid
+  amount          Decimal       @db.Decimal(12, 2)
+  currency        Currency      @default(SSP)
+  paymentMethod   PaymentMethod @map("payment_method")
+  referenceNumber String?       @map("reference_number")
+  receiptNumber   String        @unique @map("receipt_number")
+  paymentDate     DateTime      @map("payment_date")
+  notes           String?
+  recordedBy      String        @map("recorded_by") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  student         Student @relation(fields: [studentId], references: [id])
+  recorder        User    @relation("PaymentRecorder", fields: [recordedBy], references: [id])
+
+  @@map("payments")
+}
+
+model Scholarship {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  type        String
+  sponsor     String
+  amount      Decimal? @db.Decimal(12, 2)
+  percentage  Float?
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  student     Student  @relation(fields: [studentId], references: [id])
+
+  @@map("scholarships")
+}
+
+// ===========================
+// COMMUNICATION
+// ===========================
+
+model Announcement {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title          String
+  body           String
+  targetAudience String    @map("target_audience")
+  programId      String?   @map("program_id") @db.Uuid
+  createdBy      String    @map("created_by") @db.Uuid
+  publishDate    DateTime  @map("publish_date")
+  expiryDate     DateTime? @map("expiry_date")
+  attachments    Json?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  author         User      @relation("AnnouncementAuthor", fields: [createdBy], references: [id])
+  program        Program?  @relation(fields: [programId], references: [id])
+
+  @@map("announcements")
+}
+
+model Message {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  senderId    String   @map("sender_id") @db.Uuid
+  recipientId String   @map("recipient_id") @db.Uuid
+  subject     String
+  body        String
+  isRead      Boolean  @default(false) @map("is_read")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sender      User @relation("SentMessages", fields: [senderId], references: [id])
+  recipient   User @relation("ReceivedMessages", fields: [recipientId], references: [id])
+
+  @@map("messages")
+}
+
+// ===========================
+// SYSTEM
+// ===========================
+
+model Document {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityType   String   @map("entity_type")
+  entityId     String   @map("entity_id") @db.Uuid
+  documentType String   @map("document_type")
+  fileUrl      String   @map("file_url")
+  publicId     String?  @map("public_id")
+  fileName     String?  @map("file_name")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  student      Student? @relation(fields: [entityId], references: [id])
+
+  @@map("documents")
+}
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Setting {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key      String @unique
+  value    String
+  category String
+
+  @@map("settings")
+}
