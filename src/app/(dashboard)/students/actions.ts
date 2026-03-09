@@ -24,8 +24,26 @@ export async function createStudentAction(
 
   const raw = Object.fromEntries(formData.entries());
 
+  // Map form field names to schema field names
+  const firstName = ((raw.firstName as string) || "").trim();
+  const middleName = ((raw.middleName as string) || "").trim();
+  const lastName = ((raw.lastName as string) || "").trim();
+  const fullName = [firstName, middleName, lastName].filter(Boolean).join(" ");
+
+  const emergencyParts = [
+    raw.emergencyContactName,
+    raw.emergencyContactPhone,
+  ].filter(Boolean);
+
   const data = {
     ...raw,
+    fullName,
+    dob: raw.dateOfBirth || raw.dob,
+    bloodType: raw.bloodGroup || raw.bloodType,
+    medicalNotes: raw.medicalConditions || raw.medicalNotes,
+    emergencyContact: emergencyParts.length
+      ? emergencyParts.join(" - ")
+      : undefined,
     previousGradYear: raw.previousGradYear
       ? Number(raw.previousGradYear)
       : undefined,
@@ -33,8 +51,11 @@ export async function createStudentAction(
 
   const parsed = createStudentSchema.safeParse(data);
   if (!parsed.success) {
-    const firstError = parsed.error.issues[0];
-    return { error: `${firstError.path.join(".")}: ${firstError.message}` };
+    const errors = parsed.error.issues.map(
+      (i) => `${i.path.join(".")}: ${i.message}`,
+    );
+    console.error("Student validation errors:", errors);
+    return { error: errors.join("; ") };
   }
 
   const input = parsed.data;
@@ -55,8 +76,7 @@ export async function createStudentAction(
 
     // Create user account + student profile in a transaction
     const result = await db.$transaction(async (tx) => {
-      const defaultPassword = `PHSI-${currentYear}`;
-      const passwordHash = await hashPassword(defaultPassword);
+      const passwordHash = await hashPassword(studentIdNumber);
 
       const user = await tx.user.create({
         data: {
@@ -109,7 +129,7 @@ export async function createStudentAction(
 
     return {
       success: true,
-      message: `Student ${input.fullName} registered successfully with ID: ${studentIdNumber}`,
+      message: `Student ${input.fullName} registered successfully. ID: ${studentIdNumber} (this is also their login password).`,
     };
   } catch (error) {
     console.error("Create student error:", error);
@@ -253,4 +273,118 @@ export async function deleteStudentAction(
     console.error("Delete student error:", error);
     return { error: "Failed to delete student." };
   }
+}
+
+// ===========================
+// BULK IMPORT
+// ===========================
+
+type ImportRow = {
+  fullName: string;
+  email: string;
+  gender: string;
+  dateOfBirth: string;
+  phone: string;
+};
+
+export type ImportResult = {
+  error?: string;
+  success?: boolean;
+  message?: string;
+  imported?: number;
+  failed?: number;
+  errors?: string[];
+};
+
+export async function importStudentsAction(
+  rows: ImportRow[],
+  programId: string,
+): Promise<ImportResult> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  if (!rows.length) return { error: "No rows to import." };
+
+  const currentYear = new Date().getFullYear();
+
+  let imported = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 1;
+
+    if (!row.fullName || !row.email || !row.gender) {
+      errors.push(
+        `Row ${rowNum}: Missing required fields (fullName, email, or gender).`,
+      );
+      continue;
+    }
+
+    const gender = row.gender.toUpperCase();
+    if (gender !== "MALE" && gender !== "FEMALE") {
+      errors.push(`Row ${rowNum}: Invalid gender "${row.gender}".`);
+      continue;
+    }
+
+    try {
+      const existing = await db.user.findUnique({
+        where: { email: row.email.toLowerCase() },
+      });
+      if (existing) {
+        errors.push(`Row ${rowNum}: Email ${row.email} already exists.`);
+        continue;
+      }
+
+      const studentCount = await db.student.count();
+      const studentIdNumber = generateStudentId(currentYear, studentCount + 1);
+      const passwordHash = await hashPassword(studentIdNumber);
+
+      await db.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            email: row.email.toLowerCase(),
+            passwordHash,
+            role: "STUDENT",
+            fullName: row.fullName,
+            phone: row.phone || null,
+          },
+        });
+
+        await tx.student.create({
+          data: {
+            userId: user.id,
+            studentIdNumber,
+            programId,
+            admissionDate: new Date(),
+            gender: gender as "MALE" | "FEMALE",
+            dob: row.dateOfBirth
+              ? new Date(row.dateOfBirth)
+              : new Date("2000-01-01"),
+            nationality: "South Sudanese",
+          },
+        });
+      });
+
+      imported++;
+    } catch (err) {
+      console.error(`Import row ${rowNum} error:`, err);
+      errors.push(`Row ${rowNum}: Failed to import ${row.fullName}.`);
+    }
+  }
+
+  revalidatePath("/students");
+
+  await logAction(session.id, "CREATE", "Student", "bulk-import", {
+    imported,
+    failed: errors.length,
+  });
+
+  return {
+    success: true,
+    message: `Imported ${imported} of ${rows.length} students.`,
+    imported,
+    failed: errors.length,
+    errors: errors.length > 0 ? errors : undefined,
+  };
 }

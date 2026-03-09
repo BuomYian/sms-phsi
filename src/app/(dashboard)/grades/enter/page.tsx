@@ -19,37 +19,40 @@ export default async function GradeEntryPage() {
         select: { id: true },
       });
 
-  const subjects = await db.subject.findMany({
-    where: isAdmin
-      ? {}
-      : { instructors: { some: { staffId: staff?.id ?? "" } } },
-    select: {
-      id: true,
-      code: true,
-      name: true,
-      courseEnrollments: {
-        include: {
-          enrollment: {
-            include: {
-              student: {
-                include: { user: { select: { fullName: true } } },
+  const subjects =
+    !isAdmin && !staff
+      ? []
+      : await db.subject.findMany({
+          where: isAdmin
+            ? {}
+            : { instructors: { some: { staffId: staff!.id } } },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            courseEnrollments: {
+              include: {
+                enrollment: {
+                  include: {
+                    student: {
+                      include: { user: { select: { fullName: true } } },
+                    },
+                  },
+                },
+                grade: {
+                  select: {
+                    caMarks: true,
+                    examMarks: true,
+                    totalMarks: true,
+                    gradeLetter: true,
+                    status: true,
+                  },
+                },
               },
             },
           },
-          grade: {
-            select: {
-              caMarks: true,
-              examMarks: true,
-              totalMarks: true,
-              gradeLetter: true,
-              status: true,
-            },
-          },
-        },
-      },
-    },
-    orderBy: { code: "asc" },
-  });
+          orderBy: { code: "asc" },
+        });
 
   return (
     <div className="space-y-6">

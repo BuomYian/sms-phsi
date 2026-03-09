@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,8 @@ import { formatDate, formatRelativeTime } from "@/lib/utils";
 export const metadata = { title: "Announcements" };
 
 export default async function AnnouncementsPage() {
+  const session = await getSession();
+  const isAdmin = session?.role === "SUPER_ADMIN" || session?.role === "ADMIN";
   const announcements = await db.announcement.findMany({
     include: {
       author: { select: { fullName: true } },
@@ -27,11 +30,13 @@ export default async function AnnouncementsPage() {
             Institution-wide and program-specific announcements.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/announcements/new">
-            <Plus className="mr-2 h-4 w-4" /> New Announcement
-          </Link>
-        </Button>
+        {isAdmin && (
+          <Button asChild>
+            <Link href="/announcements/new">
+              <Plus className="mr-2 h-4 w-4" /> New Announcement
+            </Link>
+          </Button>
+        )}
       </div>
 
       {announcements.length === 0 ? (

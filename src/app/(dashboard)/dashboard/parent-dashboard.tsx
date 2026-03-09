@@ -1,38 +1,27 @@
 "use client";
 
-import { StatCard } from "@/components/dashboard/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
+  GraduationCap,
   Wallet,
-  CreditCard,
-  PlusCircle,
-  Receipt,
-  BarChart2,
-  AlertTriangle,
   Calendar,
   Megaphone,
-  TrendingUp,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
-import { formatCurrency } from "@/lib/utils";
 import { type SessionUser } from "@/types";
 
-interface FinanceStats {
-  totalBilled: number;
-  totalCollected: number;
-  pendingPayments: number;
-  unpaidStudents: number;
-  recentPayments: {
-    id: string;
-    studentName: string;
-    amount: number;
-    method: string;
-    receiptNumber: string;
-    date: string;
-  }[];
+interface ChildInfo {
+  id: string;
+  name: string;
+  studentId: string;
+  program: string;
+  status: string;
+  enrollmentStatus: string;
+  fees: { total: number; paid: number; balance: number };
 }
 
 interface SharedData {
@@ -58,6 +47,19 @@ interface SharedData {
   }[];
 }
 
+interface ParentStats {
+  children: ChildInfo[];
+}
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("en-SS", {
+    style: "currency",
+    currency: "SSP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-US", {
     month: "short",
@@ -75,28 +77,33 @@ function timeAgo(dateStr: string) {
   return formatDate(dateStr);
 }
 
-export function FinanceDashboard({
+const statusColor: Record<string, string> = {
+  ACTIVE: "bg-green-50 text-green-700",
+  SUSPENDED: "bg-red-50 text-red-700",
+  GRADUATED: "bg-blue-50 text-blue-700",
+  WITHDRAWN: "bg-gray-50 text-gray-600",
+};
+
+export function ParentDashboard({
   stats,
   shared,
   user,
 }: {
-  stats: FinanceStats;
+  stats: ParentStats;
   shared: SharedData;
   user: SessionUser;
 }) {
-  const collectionRate =
-    stats.totalBilled > 0
-      ? Math.round((stats.totalCollected / stats.totalBilled) * 100)
-      : 0;
-
   const currentSemester = shared.academic?.semesters.find((s) => s.isCurrent);
+  const totalBalance = stats.children.reduce((s, c) => s + c.fees.balance, 0);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Finance Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Welcome, {user.fullName}
+        </h1>
         <p className="text-muted-foreground">
-          Welcome back, {user.fullName}.
+          Monitor your children&apos;s progress.
           {shared.academic && (
             <span className="ml-1 font-medium text-foreground">
               {shared.academic.yearName}
@@ -106,122 +113,116 @@ export function FinanceDashboard({
         </p>
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Billed"
-          value={formatCurrency(stats.totalBilled)}
-          icon={Wallet}
-        />
-        <StatCard
-          title="Total Collected"
-          value={formatCurrency(stats.totalCollected)}
-          description={`${collectionRate}% collection rate`}
-          icon={CreditCard}
-        />
-        <StatCard
-          title="Outstanding"
-          value={formatCurrency(stats.totalBilled - stats.totalCollected)}
-          icon={AlertTriangle}
-        />
-        <StatCard
-          title="Unpaid Students"
-          value={stats.unpaidStudents}
-          description={`${stats.pendingPayments} pending records`}
-          icon={Receipt}
-        />
-      </div>
-
-      {/* Collection Rate Progress */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <TrendingUp className="h-4 w-4" />
-            Collection Progress
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Collected: {formatCurrency(stats.totalCollected)}</span>
-              <span>Target: {formatCurrency(stats.totalBilled)}</span>
-            </div>
-            <Progress value={collectionRate} className="h-3" />
-            <p className="text-xs text-muted-foreground text-center">
-              {collectionRate}% of total fees collected
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Payments + Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Summary */}
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Receipt className="h-4 w-4" />
-              Recent Payments
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Children</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {stats.recentPayments.length > 0 ? (
-              <div className="space-y-3">
-                {stats.recentPayments.slice(0, 8).map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{p.studentName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {p.receiptNumber} · {p.method.replace("_", " ")}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold text-green-600">
-                        {formatCurrency(p.amount)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {timeAgo(p.date)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No payments recorded yet.
-              </p>
-            )}
+            <div className="text-2xl font-bold">{stats.children.length}</div>
           </CardContent>
         </Card>
-
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Quick Actions</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Fee Balance
+            </CardTitle>
+            <Wallet className="h-4 w-4 text-orange-500" />
           </CardHeader>
-          <CardContent className="grid gap-2">
-            <Button variant="outline" className="justify-start" asChild>
-              <Link href="/fees/payments/new">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Record Payment
-              </Link>
-            </Button>
-            <Button variant="outline" className="justify-start" asChild>
-              <Link href="/fees/accounts">
-                <CreditCard className="mr-2 h-4 w-4" />
-                Student Accounts
-              </Link>
-            </Button>
-            <Button variant="outline" className="justify-start" asChild>
-              <Link href="/fees/reports">
-                <BarChart2 className="mr-2 h-4 w-4" />
-                Fee Reports
-              </Link>
-            </Button>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-500">
+              {formatCurrency(totalBalance)}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Active Students
+            </CardTitle>
+            <GraduationCap className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {stats.children.filter((c) => c.status === "ACTIVE").length}
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Children Details */}
+      {stats.children.length > 0 ? (
+        <div className="space-y-4">
+          {stats.children.map((child) => {
+            const paidPercent =
+              child.fees.total > 0
+                ? Math.round((child.fees.paid / child.fees.total) * 100)
+                : 0;
+            return (
+              <Card key={child.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <GraduationCap className="h-4 w-4" />
+                      {child.name}
+                    </CardTitle>
+                    <Badge
+                      variant="outline"
+                      className={statusColor[child.status] ?? ""}
+                    >
+                      {child.status}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid gap-4 md:grid-cols-3 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Student ID:</span>{" "}
+                      <span className="font-medium">{child.studentId}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Program:</span>{" "}
+                      <span className="font-medium">{child.program}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Enrollment:</span>{" "}
+                      <Badge variant="secondary" className="text-[10px] ml-1">
+                        {child.enrollmentStatus}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Fees: {formatCurrency(child.fees.paid)} /{" "}
+                        {formatCurrency(child.fees.total)}
+                      </span>
+                      <span className="font-medium text-orange-500">
+                        Balance: {formatCurrency(child.fees.balance)}
+                      </span>
+                    </div>
+                    <Progress value={paidPercent} />
+                  </div>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/students/${child.id}`}>View Details</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <p className="text-muted-foreground">
+              No linked students found. Please contact the registrar&apos;s
+              office to link your children to your account.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Academic Calendar + Announcements */}
       <div className="grid gap-4 md:grid-cols-2">

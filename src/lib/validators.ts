@@ -67,10 +67,10 @@ export const studentPersonalInfoSchema = z.object({
 });
 
 export const studentGuardianSchema = z.object({
-  guardianName: z.string().min(2, "Guardian name is required"),
-  guardianPhone: z.string().min(1, "Guardian phone is required"),
+  guardianName: z.string().optional(),
+  guardianPhone: z.string().optional(),
   guardianEmail: z.string().email().optional().or(z.literal("")),
-  guardianRelationship: z.string().min(1, "Relationship is required"),
+  guardianRelationship: z.string().optional(),
   guardianAddress: z.string().optional(),
 });
 
@@ -107,8 +107,8 @@ export const createStaffSchema = z.object({
   nationality: z.string().default("South Sudanese"),
   nationalId: z.string().optional(),
   address: z.string().optional(),
-  designation: z.string().min(1, "Designation is required"),
-  departmentId: z.string().uuid("Please select a department"),
+  designation: z.string().default("Staff"),
+  departmentId: z.string().uuid("Please select a department").optional(),
   employmentType: z
     .enum(["FULL_TIME", "PART_TIME", "CONTRACT"])
     .default("FULL_TIME"),

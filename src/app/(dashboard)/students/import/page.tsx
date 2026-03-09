@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -13,10 +20,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Upload } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Upload, Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
-
-export const metadata = { title: "Import Students" };
+import { importStudentsAction } from "../actions";
 
 type ParsedRow = {
   fullName: string;
@@ -26,15 +33,30 @@ type ParsedRow = {
   phone: string;
 };
 
+type Program = { id: string; name: string; code: string };
+
 export default function StudentImportPage() {
   const [rows, setRows] = useState<ParsedRow[]>([]);
-  const [file, setFile] = useState<File | null>(null);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [selectedProgram, setSelectedProgram] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const [result, setResult] = useState<{
+    message?: string;
+    errors?: string[];
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/programs")
+      .then((r) => r.json())
+      .then((data) => setPrograms(data))
+      .catch(() => toast.error("Failed to load programs."));
+  }, []);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    setFile(selectedFile);
+    setResult(null);
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -66,6 +88,23 @@ export default function StudentImportPage() {
     reader.readAsText(selectedFile);
   }
 
+  function handleImport() {
+    if (!selectedProgram) {
+      toast.error("Please select a program first.");
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await importStudentsAction(rows, selectedProgram);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success(res.message);
+        setResult({ message: res.message, errors: res.errors });
+      }
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -82,6 +121,21 @@ export default function StudentImportPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="programId">Assign to Program *</Label>
+            <Select value={selectedProgram} onValueChange={setSelectedProgram}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select program" />
+              </SelectTrigger>
+              <SelectContent>
+                {programs.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name} ({p.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="csvFile">CSV File</Label>
             <Input
               id="csvFile"
@@ -96,14 +150,44 @@ export default function StudentImportPage() {
         </CardContent>
       </Card>
 
+      {result && (
+        <Alert>
+          <CheckCircle className="h-4 w-4" />
+          <AlertDescription>
+            {result.message}
+            {result.errors && result.errors.length > 0 && (
+              <ul className="mt-2 list-disc pl-4 text-sm">
+                {result.errors.map((err, i) => (
+                  <li key={i} className="text-destructive">
+                    {err}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {rows.length > 0 && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Preview ({rows.length} rows)</CardTitle>
-              <Button disabled>
-                <Upload className="mr-2 h-4 w-4" />
-                Import All (coming soon)
+              <Button
+                onClick={handleImport}
+                disabled={isPending || !selectedProgram}
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import All
+                  </>
+                )}
               </Button>
             </div>
           </CardHeader>

@@ -23,10 +23,27 @@ export async function createStaffAction(
 
   const raw = Object.fromEntries(formData.entries());
 
-  const parsed = createStaffSchema.safeParse(raw);
+  // Map form field names to schema field names
+  const firstName = ((raw.firstName as string) || "").trim();
+  const middleName = ((raw.middleName as string) || "").trim();
+  const lastName = ((raw.lastName as string) || "").trim();
+  const fullName = [firstName, middleName, lastName].filter(Boolean).join(" ");
+
+  const data = {
+    ...raw,
+    fullName,
+    dob: raw.dateOfBirth || raw.dob,
+    designation: raw.position || raw.designation || "Staff",
+    qualifications: raw.qualification || raw.qualifications,
+  };
+
+  const parsed = createStaffSchema.safeParse(data);
   if (!parsed.success) {
-    const firstError = parsed.error.issues[0];
-    return { error: `${firstError.path.join(".")}: ${firstError.message}` };
+    const errors = parsed.error.issues.map(
+      (i) => `${i.path.join(".")}: ${i.message}`,
+    );
+    console.error("Staff validation errors:", errors);
+    return { error: errors.join("; ") };
   }
 
   const input = parsed.data;
@@ -43,8 +60,7 @@ export async function createStaffAction(
     const staffIdNumber = generateStaffId(staffCount + 1);
 
     await db.$transaction(async (tx) => {
-      const defaultPassword = `PHSI-STF-${new Date().getFullYear()}`;
-      const passwordHash = await hashPassword(defaultPassword);
+      const passwordHash = await hashPassword(staffIdNumber);
 
       const user = await tx.user.create({
         data: {
@@ -82,7 +98,7 @@ export async function createStaffAction(
     revalidatePath("/staff");
     return {
       success: true,
-      message: `Staff member ${input.fullName} created with ID: ${staffIdNumber}`,
+      message: `Staff member ${input.fullName} created. ID: ${staffIdNumber} (this is also their login password).`,
     };
   } catch (error) {
     console.error("Create staff error:", error);
@@ -116,5 +132,79 @@ export async function deleteStaffAction(id: string): Promise<StaffActionState> {
   } catch (error) {
     console.error("Delete staff error:", error);
     return { error: "Failed to delete staff member." };
+  }
+}
+
+export async function convertToStaffAction(
+  _prevState: StaffActionState,
+  formData: FormData,
+): Promise<StaffActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const userId = (formData.get("userId") as string)?.trim();
+  const departmentId = (formData.get("departmentId") as string)?.trim() || null;
+  const designation =
+    (formData.get("designation") as string)?.trim() || "Staff";
+  const employmentType =
+    (formData.get("employmentType") as string)?.trim() || "FULL_TIME";
+  const qualifications =
+    (formData.get("qualifications") as string)?.trim() || null;
+  const newRole = (formData.get("role") as string)?.trim() || null;
+
+  if (!userId) return { error: "Please select a user." };
+
+  try {
+    const user = await db.user.findUnique({ where: { id: userId } });
+    if (!user) return { error: "User not found." };
+
+    const existingStaff = await db.staff.findUnique({ where: { userId } });
+    if (existingStaff) {
+      return {
+        error: `This user already has a staff record (${existingStaff.staffIdNumber}).`,
+      };
+    }
+
+    const staffCount = await db.staff.count();
+    const staffIdNumber = generateStaffId(staffCount + 1);
+
+    await db.$transaction(async (tx) => {
+      await tx.staff.create({
+        data: {
+          userId,
+          staffIdNumber,
+          departmentId: departmentId || null,
+          designation,
+          employmentType: employmentType as
+            | "FULL_TIME"
+            | "PART_TIME"
+            | "CONTRACT",
+          dateOfHire: new Date(),
+          qualifications,
+        },
+      });
+
+      // Update user role if requested
+      if (newRole && newRole !== user.role) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { role: newRole as "ADMIN" | "INSTRUCTOR" | "FINANCE" },
+        });
+      }
+    });
+
+    await logAction(session.id, "CREATE", "Staff", staffIdNumber, {
+      name: user.fullName,
+      convertedFrom: user.role,
+    });
+
+    revalidatePath("/staff");
+    return {
+      success: true,
+      message: `${user.fullName} is now a staff member with ID: ${staffIdNumber}`,
+    };
+  } catch (error) {
+    console.error("Convert to staff error:", error);
+    return { error: "Failed to convert user to staff member." };
   }
 }

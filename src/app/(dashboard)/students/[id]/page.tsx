@@ -66,9 +66,28 @@ export default async function StudentDetailPage({
 
   if (!student) notFound();
 
+  // Serialize Decimal fields to numbers for client component
+  const serialized = {
+    ...student,
+    studentFees: student.studentFees.map((fee) => ({
+      ...fee,
+      amountCharged: Number(fee.amountCharged),
+      amountPaid: Number(fee.amountPaid),
+      balance: Number(fee.balance),
+      feeStructure: {
+        ...fee.feeStructure,
+        amount: Number(fee.feeStructure.amount),
+      },
+    })),
+    payments: student.payments.map((p) => ({
+      ...p,
+      amount: Number(p.amount),
+    })),
+  };
+
   return (
     <div className="space-y-6">
-      <StudentDetail student={student} />
+      <StudentDetail student={serialized} />
     </div>
   );
 }

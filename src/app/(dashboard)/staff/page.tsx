@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { DataTable } from "@/components/data-table";
 import { columns } from "./columns";
 import { Button } from "@/components/ui/button";
-import { UserPlus } from "lucide-react";
+import { UserPlus, UserCog } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "Staff" };
@@ -27,12 +27,20 @@ export default async function StaffPage() {
             Manage staff members and instructors.
           </p>
         </div>
-        <Button size="sm" asChild>
-          <Link href="/staff/new">
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add Staff
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" asChild>
+            <Link href="/staff/convert">
+              <UserCog className="mr-2 h-4 w-4" />
+              Convert User to Staff
+            </Link>
+          </Button>
+          <Button size="sm" asChild>
+            <Link href="/staff/new">
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add Staff
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <DataTable

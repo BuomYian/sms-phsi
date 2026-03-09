@@ -18,6 +18,10 @@ export async function createAnnouncementAction(
   const session = await getSession();
   if (!session) return { error: "Unauthorized" };
 
+  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN") {
+    return { error: "Only administrators can create announcements." };
+  }
+
   const title = formData.get("title") as string;
   const body = formData.get("body") as string;
   const targetAudience = formData.get("targetAudience") as string;
