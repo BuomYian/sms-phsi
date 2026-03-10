@@ -106,6 +106,73 @@ export async function createStaffAction(
   }
 }
 
+export async function updateStaffAction(
+  id: string,
+  _prevState: StaffActionState,
+  formData: FormData,
+): Promise<StaffActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const raw = Object.fromEntries(formData.entries());
+
+  try {
+    const result = await db.$transaction(async (tx) => {
+      const staff = await tx.staff.findUnique({
+        where: { id },
+        select: { userId: true, staffIdNumber: true },
+      });
+      if (!staff) return null;
+
+      await tx.staff.update({
+        where: { id },
+        data: {
+          departmentId: (raw.departmentId as string) || undefined,
+          designation: (raw.designation as string) || undefined,
+          employmentType: (raw.employmentType as string) || undefined,
+          salary: raw.salary ? parseFloat(raw.salary as string) : undefined,
+          qualifications: (raw.qualifications as string) || undefined,
+          gender: (raw.gender as string) || undefined,
+          dob: raw.dob ? new Date(raw.dob as string) : undefined,
+          nationality: (raw.nationality as string) || undefined,
+          nationalId: (raw.nationalId as string) || undefined,
+          address: (raw.address as string) || undefined,
+        },
+      });
+
+      const fullName = raw.fullName as string | undefined;
+      const phone = raw.phone as string | undefined;
+      const role = raw.role as string | undefined;
+      if (fullName || phone || role) {
+        await tx.user.update({
+          where: { id: staff.userId },
+          data: {
+            ...(fullName ? { fullName } : {}),
+            ...(phone ? { phone } : {}),
+            ...(role ? { role } : {}),
+          },
+        });
+      }
+
+      return staff;
+    });
+
+    if (!result) return { error: "Staff not found." };
+
+    await logAction(session.id, "UPDATE", "Staff", id, {
+      staffIdNumber: result.staffIdNumber,
+    });
+
+    revalidatePath(`/staff/${id}`);
+    revalidatePath("/staff");
+
+    return { success: true, message: "Staff member updated successfully." };
+  } catch (error) {
+    console.error("Update staff error:", error);
+    return { error: "Failed to update staff member." };
+  }
+}
+
 export async function deleteStaffAction(id: string): Promise<StaffActionState> {
   const session = await getSession();
   if (!session) return { error: "Unauthorized" };

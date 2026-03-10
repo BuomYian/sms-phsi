@@ -24,21 +24,28 @@ export default async function StudentEditPage({
 }) {
   const { id } = await params;
 
-  const student = await db.student.findUnique({
-    where: { id },
-    include: {
-      user: {
-        select: {
-          fullName: true,
-          email: true,
-          phone: true,
+  const [student, programs] = await Promise.all([
+    db.student.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            fullName: true,
+            email: true,
+            phone: true,
+          },
+        },
+        program: {
+          select: { id: true, name: true, code: true },
         },
       },
-      program: {
-        select: { id: true, name: true, code: true },
-      },
-    },
-  });
+    }),
+    db.program.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, code: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!student) notFound();
 
@@ -50,7 +57,7 @@ export default async function StudentEditPage({
           Update details for {student.user.fullName} ({student.studentIdNumber})
         </p>
       </div>
-      <StudentEditForm student={student} />
+      <StudentEditForm student={student} programs={programs} />
     </div>
   );
 }

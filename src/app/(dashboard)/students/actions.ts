@@ -148,47 +148,63 @@ export async function updateStudentAction(
   const raw = Object.fromEntries(formData.entries());
 
   try {
-    const student = await db.student.findUnique({
-      where: { id },
-      include: { user: true },
-    });
-    if (!student) return { error: "Student not found." };
+    const result = await db.$transaction(async (tx) => {
+      const student = await tx.student.findUnique({
+        where: { id },
+        select: { userId: true, studentIdNumber: true },
+      });
+      if (!student) return null;
 
-    await db.student.update({
-      where: { id },
-      data: {
-        nationality: (raw.nationality as string) || undefined,
-        nationalId: (raw.nationalId as string) || undefined,
-        address: (raw.address as string) || undefined,
-        stateCounty: (raw.stateCounty as string) || undefined,
-        guardianName: (raw.guardianName as string) || undefined,
-        guardianPhone: (raw.guardianPhone as string) || undefined,
-        guardianEmail: (raw.guardianEmail as string) || undefined,
-        guardianRelationship: (raw.guardianRelationship as string) || undefined,
-        guardianAddress: (raw.guardianAddress as string) || undefined,
-        bloodType: (raw.bloodType as string) || undefined,
-        allergies: (raw.allergies as string) || undefined,
-        disabilities: (raw.disabilities as string) || undefined,
-        medicalNotes: (raw.medicalNotes as string) || undefined,
-        emergencyContact: (raw.emergencyContact as string) || undefined,
-      },
-    });
-
-    // Update linked user fullName/phone if provided
-    const fullName = raw.fullName as string | undefined;
-    const phone = raw.phone as string | undefined;
-    if (fullName || phone) {
-      await db.user.update({
-        where: { id: student.userId },
+      await tx.student.update({
+        where: { id },
         data: {
-          ...(fullName ? { fullName } : {}),
-          ...(phone ? { phone } : {}),
+          programId: (raw.programId as string) || undefined,
+          admissionType: (raw.admissionType as string) || undefined,
+          yearOfStudy: raw.yearOfStudy ? Number(raw.yearOfStudy) : undefined,
+          nationality: (raw.nationality as string) || undefined,
+          nationalId: (raw.nationalId as string) || undefined,
+          address: (raw.address as string) || undefined,
+          stateCounty: (raw.stateCounty as string) || undefined,
+          previousSchool: (raw.previousSchool as string) || undefined,
+          previousQualification:
+            (raw.previousQualification as string) || undefined,
+          previousGradYear: raw.previousGradYear
+            ? Number(raw.previousGradYear)
+            : undefined,
+          guardianName: (raw.guardianName as string) || undefined,
+          guardianPhone: (raw.guardianPhone as string) || undefined,
+          guardianEmail: (raw.guardianEmail as string) || undefined,
+          guardianRelationship:
+            (raw.guardianRelationship as string) || undefined,
+          guardianAddress: (raw.guardianAddress as string) || undefined,
+          bloodType: (raw.bloodType as string) || undefined,
+          allergies: (raw.allergies as string) || undefined,
+          disabilities: (raw.disabilities as string) || undefined,
+          medicalNotes: (raw.medicalNotes as string) || undefined,
+          emergencyContact: (raw.emergencyContact as string) || undefined,
         },
       });
-    }
+
+      // Update linked user fullName/phone if provided
+      const fullName = raw.fullName as string | undefined;
+      const phone = raw.phone as string | undefined;
+      if (fullName || phone) {
+        await tx.user.update({
+          where: { id: student.userId },
+          data: {
+            ...(fullName ? { fullName } : {}),
+            ...(phone ? { phone } : {}),
+          },
+        });
+      }
+
+      return student;
+    });
+
+    if (!result) return { error: "Student not found." };
 
     await logAction(session.id, "UPDATE", "Student", id, {
-      studentIdNumber: student.studentIdNumber,
+      studentIdNumber: result.studentIdNumber,
     });
 
     revalidatePath(`/students/${id}`);

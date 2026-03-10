@@ -56,7 +56,14 @@ export default async function DepartmentsPage() {
               {departments.map((dept) => (
                 <TableRow key={dept.id}>
                   <TableCell className="font-mono">{dept.code}</TableCell>
-                  <TableCell className="font-medium">{dept.name}</TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/academics/departments/${dept.id}`}
+                      className="font-medium hover:underline"
+                    >
+                      {dept.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     {dept.headOfDepartment
                       ? (dept.headOfDepartment.user?.fullName ?? "—")

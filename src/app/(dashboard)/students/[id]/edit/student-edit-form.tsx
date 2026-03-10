@@ -42,6 +42,12 @@ interface StudentData {
   nationalId: string | null;
   address: string | null;
   stateCounty: string | null;
+  admissionDate: Date;
+  admissionType: string;
+  yearOfStudy: number;
+  previousSchool: string | null;
+  previousQualification: string | null;
+  previousGradYear: number | null;
   bloodType: string | null;
   allergies: string | null;
   disabilities: string | null;
@@ -60,7 +66,13 @@ interface StudentData {
   program: Program | null;
 }
 
-export function StudentEditForm({ student }: { student: StudentData }) {
+export function StudentEditForm({
+  student,
+  programs,
+}: {
+  student: StudentData;
+  programs: Program[];
+}) {
   const boundAction = updateStudentAction.bind(null, student.id);
   const [state, formAction, isPending] = useActionState<
     StudentActionState,
@@ -123,6 +135,18 @@ export function StudentEditForm({ student }: { student: StudentData }) {
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="dateOfBirth">Date of Birth</Label>
+            <Input
+              id="dateOfBirth"
+              value={new Date(student.dob).toISOString().split("T")[0]}
+              disabled
+              className="bg-muted"
+            />
+            <p className="text-xs text-muted-foreground">
+              Date of birth cannot be changed.
+            </p>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="gender">Gender</Label>
             <Input value={student.gender} disabled className="bg-muted" />
           </div>
@@ -159,6 +183,111 @@ export function StudentEditForm({ student }: { student: StudentData }) {
               id="stateCounty"
               name="stateCounty"
               defaultValue={student.stateCounty || ""}
+              disabled={isPending}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Academic Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Academic Information</CardTitle>
+          <CardDescription>
+            Update program and admission details.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="programId">Program *</Label>
+            <Select name="programId" defaultValue={student.programId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select program" />
+              </SelectTrigger>
+              <SelectContent>
+                {programs.map((program) => (
+                  <SelectItem key={program.id} value={program.id}>
+                    {program.name} ({program.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="admissionDate">Admission Date</Label>
+            <Input
+              id="admissionDate"
+              value={
+                new Date(student.admissionDate).toISOString().split("T")[0]
+              }
+              disabled
+              className="bg-muted"
+            />
+            <p className="text-xs text-muted-foreground">
+              Admission date cannot be changed.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="admissionType">Admission Type</Label>
+            <Select name="admissionType" defaultValue={student.admissionType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="REGULAR">Regular</SelectItem>
+                <SelectItem value="TRANSFER">Transfer</SelectItem>
+                <SelectItem value="MATURE_ENTRY">Mature Entry</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="yearOfStudy">Year of Study</Label>
+            <Input
+              id="yearOfStudy"
+              name="yearOfStudy"
+              type="number"
+              min={1}
+              defaultValue={student.yearOfStudy}
+              disabled={isPending}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Previous Education */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Previous Education</CardTitle>
+          <CardDescription>Update previous education details.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="previousSchool">Previous School</Label>
+            <Input
+              id="previousSchool"
+              name="previousSchool"
+              defaultValue={student.previousSchool || ""}
+              disabled={isPending}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="previousQualification">
+              Previous Qualification
+            </Label>
+            <Input
+              id="previousQualification"
+              name="previousQualification"
+              defaultValue={student.previousQualification || ""}
+              disabled={isPending}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="previousGradYear">Graduation Year</Label>
+            <Input
+              id="previousGradYear"
+              name="previousGradYear"
+              type="number"
+              defaultValue={student.previousGradYear || ""}
               disabled={isPending}
             />
           </div>

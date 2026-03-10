@@ -71,6 +71,50 @@ export async function createProgramAction(
   }
 }
 
+export async function updateProgramAction(
+  id: string,
+  _prevState: AcademicActionState,
+  formData: FormData,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const raw = Object.fromEntries(formData.entries());
+
+  try {
+    const program = await db.program.findUnique({ where: { id } });
+    if (!program) return { error: "Program not found." };
+
+    await db.program.update({
+      where: { id },
+      data: {
+        name: (raw.name as string) || undefined,
+        departmentId: (raw.departmentId as string) || undefined,
+        durationSemesters: raw.durationSemesters
+          ? Number(raw.durationSemesters)
+          : undefined,
+        totalCredits: raw.totalCredits ? Number(raw.totalCredits) : undefined,
+        description: (raw.description as string) || null,
+        entryRequirements: (raw.entryRequirements as string) || null,
+        isActive: raw.isActive === "on",
+      },
+    });
+
+    await logAction(session.id, "UPDATE", "Program", id, {
+      name: raw.name as string,
+      code: program.code,
+    });
+
+    revalidatePath(`/academics/programs/${id}`);
+    revalidatePath("/academics/programs");
+
+    return { success: true, message: "Program updated successfully." };
+  } catch (error) {
+    console.error("Update program error:", error);
+    return { error: "Failed to update program." };
+  }
+}
+
 // --------------- Subjects ---------------
 export async function createSubjectAction(
   _prevState: AcademicActionState,
@@ -124,6 +168,49 @@ export async function createSubjectAction(
   }
 }
 
+export async function updateSubjectAction(
+  id: string,
+  _prevState: AcademicActionState,
+  formData: FormData,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const raw = Object.fromEntries(formData.entries());
+
+  try {
+    const subject = await db.subject.findUnique({ where: { id } });
+    if (!subject) return { error: "Subject not found." };
+
+    await db.subject.update({
+      where: { id },
+      data: {
+        name: (raw.name as string) || undefined,
+        programId: (raw.programId as string) || undefined,
+        creditHours: raw.creditHours ? Number(raw.creditHours) : undefined,
+        semesterNumber: raw.semesterNumber
+          ? Number(raw.semesterNumber)
+          : undefined,
+        type: (raw.type as string) || undefined,
+        description: (raw.description as string) || null,
+      },
+    });
+
+    await logAction(session.id, "UPDATE", "Subject", id, {
+      name: raw.name as string,
+      code: subject.code,
+    });
+
+    revalidatePath(`/academics/subjects/${id}`);
+    revalidatePath("/academics/subjects");
+
+    return { success: true, message: "Subject updated successfully." };
+  } catch (error) {
+    console.error("Update subject error:", error);
+    return { error: "Failed to update subject." };
+  }
+}
+
 // --------------- Departments ---------------
 export async function createDepartmentAction(
   _prevState: AcademicActionState,
@@ -165,6 +252,46 @@ export async function createDepartmentAction(
   } catch (error) {
     console.error("Create department error:", error);
     return { error: "Failed to create department." };
+  }
+}
+
+export async function updateDepartmentAction(
+  id: string,
+  _prevState: AcademicActionState,
+  formData: FormData,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const raw = Object.fromEntries(formData.entries());
+
+  try {
+    const dept = await db.department.findUnique({ where: { id } });
+    if (!dept) return { error: "Department not found." };
+
+    await db.department.update({
+      where: { id },
+      data: {
+        name: (raw.name as string) || undefined,
+        code: (raw.code as string) || null,
+        headOfDepartmentId:
+          raw.headOfDepartmentId === "none"
+            ? null
+            : (raw.headOfDepartmentId as string) || null,
+      },
+    });
+
+    await logAction(session.id, "UPDATE", "Department", id, {
+      name: raw.name as string,
+    });
+
+    revalidatePath(`/academics/departments/${id}`);
+    revalidatePath("/academics/departments");
+
+    return { success: true, message: "Department updated successfully." };
+  } catch (error) {
+    console.error("Update department error:", error);
+    return { error: "Failed to update department." };
   }
 }
 

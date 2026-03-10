@@ -131,6 +131,14 @@ export function StudentForm({ programs }: { programs: Program[] }) {
             <Label htmlFor="address">Address</Label>
             <Input id="address" name="address" disabled={isPending} />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="nationalId">National ID</Label>
+            <Input id="nationalId" name="nationalId" disabled={isPending} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="stateCounty">State / County</Label>
+            <Input id="stateCounty" name="stateCounty" disabled={isPending} />
+          </div>
         </CardContent>
       </Card>
 
@@ -182,6 +190,45 @@ export function StudentForm({ programs }: { programs: Program[] }) {
         </CardContent>
       </Card>
 
+      {/* Previous Education */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Previous Education</CardTitle>
+          <CardDescription>
+            Previous education details (optional).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="previousSchool">Previous School</Label>
+            <Input
+              id="previousSchool"
+              name="previousSchool"
+              disabled={isPending}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="previousQualification">
+              Previous Qualification
+            </Label>
+            <Input
+              id="previousQualification"
+              name="previousQualification"
+              disabled={isPending}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="previousGradYear">Graduation Year</Label>
+            <Input
+              id="previousGradYear"
+              name="previousGradYear"
+              type="number"
+              disabled={isPending}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Guardian / Emergency Contact */}
       <Card>
         <CardHeader>
@@ -228,6 +275,14 @@ export function StudentForm({ programs }: { programs: Program[] }) {
                 <SelectItem value="Other">Other</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="guardianAddress">Guardian Address</Label>
+            <Input
+              id="guardianAddress"
+              name="guardianAddress"
+              disabled={isPending}
+            />
           </div>
 
           <Separator className="md:col-span-2 lg:col-span-3" />
@@ -294,6 +349,15 @@ export function StudentForm({ programs }: { programs: Program[] }) {
             <Textarea
               id="medicalConditions"
               name="medicalConditions"
+              rows={2}
+              disabled={isPending}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="disabilities">Disabilities</Label>
+            <Textarea
+              id="disabilities"
+              name="disabilities"
               rows={2}
               disabled={isPending}
             />

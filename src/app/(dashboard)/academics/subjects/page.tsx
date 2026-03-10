@@ -62,7 +62,14 @@ export default async function SubjectsPage() {
               {subjects.map((subject) => (
                 <TableRow key={subject.id}>
                   <TableCell className="font-mono">{subject.code}</TableCell>
-                  <TableCell className="font-medium">{subject.name}</TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/academics/subjects/${subject.id}`}
+                      className="font-medium hover:underline"
+                    >
+                      {subject.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     {subject.program
                       ? `${subject.program.name} (${subject.program.code})`
