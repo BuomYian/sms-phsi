@@ -90,7 +90,11 @@ export async function approveGradeAction(
   try {
     await db.grade.update({
       where: { id: gradeId },
-      data: { status: "APPROVED" },
+      data: {
+        status: "APPROVED",
+        approvedBy: session.id,
+        approvedDate: new Date(),
+      },
     });
 
     await logAction(session.id, "UPDATE", "Grade", gradeId, {
@@ -102,6 +106,193 @@ export async function approveGradeAction(
   } catch (error) {
     console.error("Approve grade error:", error);
     return { error: "Failed to approve grade." };
+  }
+}
+
+export async function rejectGradeAction(
+  gradeId: string,
+): Promise<GradeActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  try {
+    await db.grade.update({
+      where: { id: gradeId },
+      data: { status: "DRAFT" },
+    });
+
+    await logAction(session.id, "UPDATE", "Grade", gradeId, {
+      action: "rejected",
+    });
+
+    revalidatePath("/grades");
+    return { success: true, message: "Grade returned to draft." };
+  } catch (error) {
+    console.error("Reject grade error:", error);
+    return { error: "Failed to reject grade." };
+  }
+}
+
+export async function bulkApproveGradesAction(
+  gradeIds: string[],
+): Promise<GradeActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  if (gradeIds.length === 0) return { error: "No grades selected." };
+
+  try {
+    await db.grade.updateMany({
+      where: { id: { in: gradeIds }, status: "SUBMITTED" },
+      data: {
+        status: "APPROVED",
+        approvedBy: session.id,
+        approvedDate: new Date(),
+      },
+    });
+
+    await logAction(session.id, "UPDATE", "Grade", "bulk-approve", {
+      count: gradeIds.length,
+    });
+
+    revalidatePath("/grades");
+    return {
+      success: true,
+      message: `${gradeIds.length} grade(s) approved.`,
+    };
+  } catch (error) {
+    console.error("Bulk approve error:", error);
+    return { error: "Failed to approve grades." };
+  }
+}
+
+// ─── Exam Schedule ──────────────────────────────────────────
+
+export async function createExamScheduleAction(
+  _prevState: GradeActionState,
+  formData: FormData,
+): Promise<GradeActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const subjectId = formData.get("subjectId") as string;
+  const semesterId = formData.get("semesterId") as string;
+  const date = formData.get("date") as string;
+  const startTime = formData.get("startTime") as string;
+  const endTime = formData.get("endTime") as string;
+  const venue = formData.get("venue") as string;
+  const duration = parseInt(formData.get("duration") as string);
+
+  if (
+    !subjectId ||
+    !semesterId ||
+    !date ||
+    !startTime ||
+    !endTime ||
+    !venue ||
+    isNaN(duration)
+  ) {
+    return { error: "All fields are required." };
+  }
+
+  try {
+    const exam = await db.examSchedule.create({
+      data: {
+        subjectId,
+        semesterId,
+        date: new Date(date),
+        startTime,
+        endTime,
+        venue,
+        duration,
+      },
+    });
+
+    await logAction(session.id, "CREATE", "ExamSchedule", exam.id, {
+      subjectId,
+      date,
+    });
+
+    revalidatePath("/grades/exams");
+    return { success: true, message: "Exam scheduled." };
+  } catch (error) {
+    console.error("Create exam error:", error);
+    return { error: "Failed to schedule exam." };
+  }
+}
+
+export async function updateExamScheduleAction(
+  _prevState: GradeActionState,
+  formData: FormData,
+): Promise<GradeActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const id = formData.get("id") as string;
+  const subjectId = formData.get("subjectId") as string;
+  const semesterId = formData.get("semesterId") as string;
+  const date = formData.get("date") as string;
+  const startTime = formData.get("startTime") as string;
+  const endTime = formData.get("endTime") as string;
+  const venue = formData.get("venue") as string;
+  const duration = parseInt(formData.get("duration") as string);
+
+  if (
+    !id ||
+    !subjectId ||
+    !semesterId ||
+    !date ||
+    !startTime ||
+    !endTime ||
+    !venue ||
+    isNaN(duration)
+  ) {
+    return { error: "All fields are required." };
+  }
+
+  try {
+    await db.examSchedule.update({
+      where: { id },
+      data: {
+        subjectId,
+        semesterId,
+        date: new Date(date),
+        startTime,
+        endTime,
+        venue,
+        duration,
+      },
+    });
+
+    await logAction(session.id, "UPDATE", "ExamSchedule", id, {
+      subjectId,
+      date,
+    });
+
+    revalidatePath("/grades/exams");
+    return { success: true, message: "Exam schedule updated." };
+  } catch (error) {
+    console.error("Update exam error:", error);
+    return { error: "Failed to update exam schedule." };
+  }
+}
+
+export async function deleteExamScheduleAction(
+  examId: string,
+): Promise<GradeActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  try {
+    await db.examSchedule.delete({ where: { id: examId } });
+
+    await logAction(session.id, "DELETE", "ExamSchedule", examId);
+
+    revalidatePath("/grades/exams");
+    return { success: true, message: "Exam schedule deleted." };
+  } catch (error) {
+    console.error("Delete exam error:", error);
+    return { error: "Failed to delete exam schedule." };
   }
 }
 

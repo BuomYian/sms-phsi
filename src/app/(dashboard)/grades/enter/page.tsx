@@ -9,15 +9,25 @@ export default async function GradeEntryPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  // Get subjects that the current instructor teaches, or all subjects for admin
   const isAdmin = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
+  const isInstructor = session.role === "INSTRUCTOR";
 
-  const staff = isAdmin
-    ? null
-    : await db.staff.findFirst({
-        where: { userId: session.id },
-        select: { id: true },
-      });
+  if (!isAdmin && !isInstructor) {
+    redirect("/grades");
+  }
+
+  const [staff, currentSemester] = await Promise.all([
+    isAdmin
+      ? null
+      : db.staff.findFirst({
+          where: { userId: session.id },
+          select: { id: true },
+        }),
+    db.semester.findFirst({
+      where: { isCurrent: true },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   const subjects =
     !isAdmin && !staff
@@ -31,6 +41,14 @@ export default async function GradeEntryPage() {
             code: true,
             name: true,
             courseEnrollments: {
+              where: {
+                enrollment: {
+                  status: "APPROVED",
+                  ...(currentSemester
+                    ? { semesterId: currentSemester.id }
+                    : {}),
+                },
+              },
               include: {
                 enrollment: {
                   include: {
@@ -60,6 +78,7 @@ export default async function GradeEntryPage() {
         <h1 className="text-2xl font-bold tracking-tight">Grade Entry</h1>
         <p className="text-muted-foreground">
           Enter CA and exam marks for enrolled students.
+          {currentSemester ? ` · ${currentSemester.name}` : ""}
         </p>
       </div>
       <GradeEntryForm subjects={subjects} />

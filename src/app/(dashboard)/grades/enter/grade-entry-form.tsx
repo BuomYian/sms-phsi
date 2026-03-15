@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect } from "react";
 import { submitGradeAction, type GradeActionState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -138,12 +138,10 @@ function GradeRow({
   const examNum = parseFloat(exam);
   const total = !isNaN(caNum) && !isNaN(examNum) ? caNum + examNum : null;
 
-  if (state?.success) {
-    toast.success(state.message);
-  }
-  if (state?.error) {
-    toast.error(state.error);
-  }
+  useEffect(() => {
+    if (state?.success) toast.success(state.message);
+    if (state?.error) toast.error(state.error);
+  }, [state]);
 
   return (
     <TableRow>

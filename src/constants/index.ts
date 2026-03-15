@@ -193,7 +193,7 @@ export const NAV_ITEMS: NavItem[] = [
         title: "Grade Entry",
         href: "/grades/enter",
         icon: "PenLine",
-        roles: [Role.INSTRUCTOR],
+        roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.INSTRUCTOR],
       },
       {
         title: "Grade Review",
