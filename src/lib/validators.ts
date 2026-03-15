@@ -205,7 +205,6 @@ export const createFeeStructureSchema = z.object({
     "OTHER",
   ]),
   amount: z.coerce.number().min(0, "Amount must be positive"),
-  currency: z.enum(["SSP", "USD"]).default("SSP"),
   description: z.string().optional(),
 });
 
@@ -213,7 +212,6 @@ export const createFeeStructureSchema = z.object({
 export const recordPaymentSchema = z.object({
   studentId: z.string().uuid("Please select a student"),
   amount: z.coerce.number().min(1, "Amount must be greater than 0"),
-  currency: z.enum(["SSP", "USD"]).default("SSP"),
   paymentMethod: z.enum(["CASH", "BANK_TRANSFER", "MOBILE_MONEY"]),
   referenceNumber: z.string().optional(),
   paymentDate: z.string().min(1, "Payment date is required"),

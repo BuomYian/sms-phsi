@@ -64,7 +64,7 @@ export default function PaymentForm({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount *</Label>
+              <Label htmlFor="amount">Amount (USD) *</Label>
               <Input
                 id="amount"
                 name="amount"
@@ -74,18 +74,6 @@ export default function PaymentForm({
                 required
                 placeholder="0.00"
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="currency">Currency</Label>
-              <Select name="currency" defaultValue="SSP">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SSP">SSP</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 

@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
+import { Award } from "lucide-react";
 
 export const metadata = { title: "My Fees" };
 
@@ -19,9 +20,21 @@ export default async function MyFeesPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
+  const now = new Date();
   const student = await db.student.findFirst({
     where: { userId: session.id },
     include: {
+      scholarships: {
+        where: { startDate: { lte: now }, endDate: { gte: now } },
+        select: {
+          sponsor: true,
+          type: true,
+          percentage: true,
+          amount: true,
+          startDate: true,
+          endDate: true,
+        },
+      },
       studentFees: {
         include: {
           feeStructure: {
@@ -74,9 +87,7 @@ export default async function MyFeesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
-              {formatCurrency(totalBilled, "SSP")}
-            </p>
+            <p className="text-2xl font-bold">{formatCurrency(totalBilled)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -87,7 +98,7 @@ export default async function MyFeesPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-green-600">
-              {formatCurrency(totalPaid, "SSP")}
+              {formatCurrency(totalPaid)}
             </p>
           </CardContent>
         </Card>
@@ -99,11 +110,44 @@ export default async function MyFeesPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-red-600">
-              {formatCurrency(balance, "SSP")}
+              {formatCurrency(balance)}
             </p>
           </CardContent>
         </Card>
       </div>
+
+      {student.scholarships.length > 0 && (
+        <Card className="border-green-200 dark:border-green-800">
+          <CardHeader className="flex flex-row items-center gap-3 pb-2">
+            <Award className="h-5 w-5 text-green-600" />
+            <CardTitle className="text-base text-green-700 dark:text-green-400">
+              Active Scholarship
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {student.scholarships.map((sch, i) => (
+              <div key={i} className="space-y-1">
+                <p className="font-medium">Sponsored by: {sch.sponsor}</p>
+                <p className="text-sm text-muted-foreground">
+                  {sch.type}
+                  {sch.percentage ? ` · ${sch.percentage}% coverage` : ""}
+                  {sch.amount
+                    ? ` · $${Number(sch.amount).toFixed(2)} fixed`
+                    : ""}
+                </p>
+                {sch.percentage === 100 && (
+                  <Badge
+                    variant="default"
+                    className="bg-green-600 hover:bg-green-700 mt-1"
+                  >
+                    Full Scholarship — No Fees Required
+                  </Badge>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -132,13 +176,13 @@ export default async function MyFeesPage() {
                     <Badge variant="outline">{f.feeStructure.category}</Badge>
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    {formatCurrency(Number(f.amountCharged), "SSP")}
+                    {formatCurrency(Number(f.amountCharged))}
                   </TableCell>
                   <TableCell className="text-right font-mono text-green-600">
-                    {formatCurrency(Number(f.amountPaid), "SSP")}
+                    {formatCurrency(Number(f.amountPaid))}
                   </TableCell>
                   <TableCell className="text-right font-mono text-red-600">
-                    {formatCurrency(Number(f.balance), "SSP")}
+                    {formatCurrency(Number(f.balance))}
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge
@@ -184,7 +228,7 @@ export default async function MyFeesPage() {
                       {p.receiptNumber}
                     </TableCell>
                     <TableCell className="text-right font-mono font-medium">
-                      {formatCurrency(Number(p.amount), p.currency)}
+                      {formatCurrency(Number(p.amount))}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{p.paymentMethod}</Badge>

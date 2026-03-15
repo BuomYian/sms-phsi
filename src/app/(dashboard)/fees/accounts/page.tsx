@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth/session";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,27 +13,52 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { PlusCircle, Award } from "lucide-react";
 
 export const metadata = { title: "Student Accounts" };
 
 export default async function StudentAccountsPage() {
+  const session = await getSession();
+  const isAdmin =
+    session?.role === "SUPER_ADMIN" ||
+    session?.role === "ADMIN" ||
+    session?.role === "FINANCE";
+
+  const now = new Date();
   const students = await db.student.findMany({
     where: { status: "ACTIVE" },
     include: {
       user: { select: { fullName: true } },
       program: { select: { name: true } },
       studentFees: true,
+      scholarships: {
+        where: { startDate: { lte: now }, endDate: { gte: now } },
+        select: { sponsor: true, percentage: true, amount: true, type: true },
+        take: 1,
+      },
     },
     orderBy: { studentIdNumber: "asc" },
   });
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Student Accounts</h1>
-        <p className="text-muted-foreground">
-          Fee balances for all active students.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Student Accounts
+          </h1>
+          <p className="text-muted-foreground">
+            Fee balances for all active students.
+          </p>
+        </div>
+        {isAdmin && (
+          <Button asChild>
+            <Link href="/fees/accounts/assign">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Assign Fee
+            </Link>
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -43,6 +69,7 @@ export default async function StudentAccountsPage() {
                 <TableHead>Student ID</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Program</TableHead>
+                <TableHead>Sponsor</TableHead>
                 <TableHead className="text-right">Billed</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
@@ -62,7 +89,12 @@ export default async function StudentAccountsPage() {
                     sum + Number(f.amountPaid),
                   0,
                 );
-                const balance = billed - paid;
+                const balance = s.studentFees.reduce(
+                  (sum: number, f: { balance: unknown }) =>
+                    sum + Number(f.balance),
+                  0,
+                );
+                const scholarship = s.scholarships[0];
                 const statusLabel =
                   balance <= 0
                     ? "PAID"
@@ -79,14 +111,37 @@ export default async function StudentAccountsPage() {
                     </TableCell>
                     <TableCell>{s.user.fullName}</TableCell>
                     <TableCell>{s.program.name}</TableCell>
+                    <TableCell>
+                      {scholarship ? (
+                        <div className="flex items-center gap-1.5">
+                          <Award className="h-3.5 w-3.5 text-green-600" />
+                          <div>
+                            <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                              {scholarship.sponsor}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {scholarship.percentage
+                                ? `${scholarship.percentage}%`
+                                : scholarship.amount
+                                  ? `$${Number(scholarship.amount).toFixed(0)}`
+                                  : scholarship.type}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">
+                          Self-funded
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right font-mono">
-                      {formatCurrency(billed, "SSP")}
+                      {formatCurrency(billed)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-green-600">
-                      {formatCurrency(paid, "SSP")}
+                      {formatCurrency(paid)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-red-600">
-                      {formatCurrency(balance, "SSP")}
+                      {formatCurrency(balance)}
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge
@@ -111,7 +166,7 @@ export default async function StudentAccountsPage() {
               })}
               {students.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
+                  <TableCell colSpan={9} className="h-24 text-center">
                     No active students.
                   </TableCell>
                 </TableRow>

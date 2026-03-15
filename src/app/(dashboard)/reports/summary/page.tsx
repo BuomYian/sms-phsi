@@ -47,9 +47,9 @@ export default async function SummaryReportPage() {
     { label: "Enrollments", value: enrollmentCount.toString() },
     { label: "Approved Grades", value: gradeCount.toString() },
     { label: "Payments Recorded", value: paymentCount.toString() },
-    { label: "Total Billed", value: formatCurrency(billed, "SSP") },
-    { label: "Total Collected", value: formatCurrency(paid, "SSP") },
-    { label: "Outstanding", value: formatCurrency(billed - paid, "SSP") },
+    { label: "Total Billed", value: formatCurrency(billed) },
+    { label: "Total Collected", value: formatCurrency(paid) },
+    { label: "Outstanding", value: formatCurrency(billed - paid) },
     { label: "Collection Rate", value: `${collectionRate}%` },
     { label: "Attendance Rate", value: `${attendanceRate}%` },
   ];

@@ -61,7 +61,7 @@ export default async function PaymentsPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-mono font-medium">
-                    {formatCurrency(Number(p.amount), p.currency)}
+                    {formatCurrency(Number(p.amount))}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">{p.paymentMethod}</Badge>

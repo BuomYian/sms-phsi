@@ -43,9 +43,7 @@ export default async function FinancialReportPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
-              {formatCurrency(billed, "SSP")}
-            </p>
+            <p className="text-2xl font-bold">{formatCurrency(billed)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -56,7 +54,7 @@ export default async function FinancialReportPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-green-600">
-              {formatCurrency(paid, "SSP")}
+              {formatCurrency(paid)}
             </p>
           </CardContent>
         </Card>
@@ -68,7 +66,7 @@ export default async function FinancialReportPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-red-600">
-              {formatCurrency(outstanding, "SSP")}
+              {formatCurrency(outstanding)}
             </p>
           </CardContent>
         </Card>
@@ -108,7 +106,7 @@ export default async function FinancialReportPage() {
                       </p>
                     </div>
                     <p className="font-mono font-medium">
-                      {formatCurrency(Number(pm._sum.amount ?? 0), "SSP")}
+                      {formatCurrency(Number(pm._sum.amount ?? 0))}
                     </p>
                   </div>
                 ))}
@@ -137,7 +135,7 @@ export default async function FinancialReportPage() {
                 <span className="text-muted-foreground">Avg Payment</span>
                 <span className="font-mono font-medium">
                   {paymentsCount > 0
-                    ? formatCurrency(paid / paymentsCount, "SSP")
+                    ? formatCurrency(paid / paymentsCount)
                     : "—"}
                 </span>
               </div>

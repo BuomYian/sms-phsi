@@ -42,9 +42,7 @@ export default async function FeeReportsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
-              {formatCurrency(billed, "SSP")}
-            </p>
+            <p className="text-2xl font-bold">{formatCurrency(billed)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -55,7 +53,7 @@ export default async function FeeReportsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-green-600">
-              {formatCurrency(paid, "SSP")}
+              {formatCurrency(paid)}
             </p>
           </CardContent>
         </Card>
@@ -67,7 +65,7 @@ export default async function FeeReportsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-red-600">
-              {formatCurrency(outstanding, "SSP")}
+              {formatCurrency(outstanding)}
             </p>
           </CardContent>
         </Card>
@@ -107,7 +105,7 @@ export default async function FeeReportsPage() {
                       </p>
                     </div>
                     <p className="font-mono font-medium">
-                      {formatCurrency(Number(pm._sum.amount ?? 0), "SSP")}
+                      {formatCurrency(Number(pm._sum.amount ?? 0))}
                     </p>
                   </div>
                 ))}
@@ -136,7 +134,7 @@ export default async function FeeReportsPage() {
                 <span className="text-muted-foreground">Avg. Outstanding</span>
                 <span className="font-mono font-medium">
                   {studentsWithBalance > 0
-                    ? formatCurrency(outstanding / studentsWithBalance, "SSP")
+                    ? formatCurrency(outstanding / studentsWithBalance)
                     : "—"}
                 </span>
               </div>

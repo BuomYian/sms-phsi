@@ -69,11 +69,6 @@ export enum SubjectType {
   ELECTIVE = "ELECTIVE",
 }
 
-export enum Currency {
-  SSP = "SSP",
-  USD = "USD",
-}
-
 export enum AdmissionType {
   REGULAR = "REGULAR",
   TRANSFER = "TRANSFER",

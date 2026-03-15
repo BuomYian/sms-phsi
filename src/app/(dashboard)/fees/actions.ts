@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { generateReceiptNumber } from "@/lib/utils";
+import type { FeeCategory, PaymentMethod } from "@prisma/client";
 
 export type FeeActionState = {
   error?: string;
@@ -24,7 +25,6 @@ export async function createFeeStructureAction(
   const semesterId = formData.get("semesterId") as string;
   const category = formData.get("category") as string;
   const amount = parseFloat(formData.get("amount") as string);
-  const currency = (formData.get("currency") as string) || "SSP";
   const description = formData.get("description") as string;
 
   if (
@@ -43,9 +43,8 @@ export async function createFeeStructureAction(
         programId,
         academicYearId,
         semesterId,
-        category: category as any,
+        category: category as FeeCategory,
         amount,
-        currency: currency as any,
         description: description || null,
       },
     });
@@ -63,46 +62,174 @@ export async function createFeeStructureAction(
   }
 }
 
-export async function assignFeeToStudentAction(
+export async function bulkAssignFeesAction(
   _prevState: FeeActionState,
   formData: FormData,
 ): Promise<FeeActionState> {
   const session = await getSession();
   if (!session) return { error: "Unauthorized" };
 
-  const studentId = formData.get("studentId") as string;
   const feeStructureId = formData.get("feeStructureId") as string;
-
-  if (!studentId || !feeStructureId) {
-    return { error: "Student and fee structure are required." };
-  }
+  if (!feeStructureId) return { error: "Fee structure is required." };
 
   try {
     const feeStructure = await db.feeStructure.findUnique({
       where: { id: feeStructureId },
+      include: { program: true },
     });
     if (!feeStructure) return { error: "Fee structure not found." };
 
-    await db.studentFee.create({
-      data: {
-        studentId,
-        feeStructureId,
-        amountCharged: feeStructure.amount,
-        amountPaid: 0,
-        balance: feeStructure.amount,
-        status: "UNPAID",
-      },
+    // Get all active students in this program
+    const students = await db.student.findMany({
+      where: { programId: feeStructure.programId, status: "ACTIVE" },
+      select: { id: true },
     });
 
-    await logAction(session.id, "CREATE", "StudentFee", studentId, {
-      feeStructureId,
+    // Get students who already have this fee
+    const existing = await db.studentFee.findMany({
+      where: { feeStructureId },
+      select: { studentId: true },
+    });
+    const existingIds = new Set(existing.map((e) => e.studentId));
+    const toAssign = students.filter((s) => !existingIds.has(s.id));
+
+    if (toAssign.length === 0) {
+      return { error: "All students already have this fee assigned." };
+    }
+
+    const now = new Date();
+    let assigned = 0;
+
+    for (const student of toAssign) {
+      // Check for active scholarship
+      const scholarship = await db.scholarship.findFirst({
+        where: {
+          studentId: student.id,
+          startDate: { lte: now },
+          endDate: { gte: now },
+        },
+      });
+
+      const amountCharged = Number(feeStructure.amount);
+      let balance = amountCharged;
+      let status = "UNPAID";
+
+      if (scholarship) {
+        let discount = 0;
+        if (scholarship.percentage) {
+          discount = amountCharged * (scholarship.percentage / 100);
+        } else if (scholarship.amount) {
+          discount = Math.min(Number(scholarship.amount), amountCharged);
+        }
+        balance = amountCharged - discount;
+        status = balance <= 0 ? "PAID" : "UNPAID";
+      }
+
+      await db.studentFee.create({
+        data: {
+          studentId: student.id,
+          feeStructureId,
+          amountCharged: feeStructure.amount,
+          amountPaid: 0,
+          balance,
+          status,
+        },
+      });
+      assigned++;
+    }
+
+    await logAction(session.id, "CREATE", "StudentFee", feeStructureId, {
+      bulkAssign: true,
+      count: assigned,
     });
 
     revalidatePath("/fees");
-    return { success: true, message: "Fee assigned to student." };
+    return {
+      success: true,
+      message: `Fee assigned to ${assigned} students. Scholarships auto-applied.`,
+    };
   } catch (error) {
-    console.error("Assign fee error:", error);
-    return { error: "Failed to assign fee." };
+    console.error("Bulk assign fee error:", error);
+    return { error: "Failed to bulk-assign fees." };
+  }
+}
+
+export async function updateFeeStructureAction(
+  id: string,
+  _prevState: FeeActionState,
+  formData: FormData,
+): Promise<FeeActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const programId = formData.get("programId") as string;
+  const academicYearId = formData.get("academicYearId") as string;
+  const semesterId = formData.get("semesterId") as string;
+  const category = formData.get("category") as string;
+  const amount = parseFloat(formData.get("amount") as string);
+  const description = formData.get("description") as string;
+
+  if (
+    !programId ||
+    !academicYearId ||
+    !semesterId ||
+    !category ||
+    isNaN(amount)
+  ) {
+    return { error: "All required fields must be filled." };
+  }
+
+  try {
+    await db.feeStructure.update({
+      where: { id },
+      data: {
+        programId,
+        academicYearId,
+        semesterId,
+        category: category as FeeCategory,
+        amount,
+        description: description || null,
+      },
+    });
+
+    await logAction(session.id, "UPDATE", "FeeStructure", id, {
+      category,
+      amount,
+    });
+
+    revalidatePath("/fees");
+    return { success: true, message: "Fee structure updated." };
+  } catch (error) {
+    console.error("Update fee structure error:", error);
+    return { error: "Failed to update fee structure." };
+  }
+}
+
+export async function deleteFeeStructureAction(
+  id: string,
+): Promise<FeeActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  try {
+    const hasStudentFees = await db.studentFee.count({
+      where: { feeStructureId: id },
+    });
+    if (hasStudentFees > 0) {
+      return {
+        error:
+          "Cannot delete fee structure with assigned student fees. Remove student fees first.",
+      };
+    }
+
+    await db.feeStructure.delete({ where: { id } });
+    await logAction(session.id, "DELETE", "FeeStructure", id, {});
+
+    revalidatePath("/fees/structures");
+    return { success: true, message: "Fee structure deleted." };
+  } catch (error) {
+    console.error("Delete fee structure error:", error);
+    return { error: "Failed to delete fee structure." };
   }
 }
 
@@ -115,7 +242,6 @@ export async function recordPaymentAction(
 
   const studentId = formData.get("studentId") as string;
   const amount = parseFloat(formData.get("amount") as string);
-  const currency = (formData.get("currency") as string) || "SSP";
   const paymentMethod = formData.get("paymentMethod") as string;
   const referenceNumber = formData.get("referenceNumber") as string;
   const notes = formData.get("notes") as string;
@@ -130,10 +256,13 @@ export async function recordPaymentAction(
       data: {
         studentId,
         amount,
-        currency: currency as any,
-        paymentMethod: paymentMethod as any,
+        currency: "USD",
+        paymentMethod: paymentMethod as PaymentMethod,
         referenceNumber: referenceNumber || null,
-        receiptNumber: generateReceiptNumber(new Date().getFullYear(), paymentCount + 1),
+        receiptNumber: generateReceiptNumber(
+          new Date().getFullYear(),
+          paymentCount + 1,
+        ),
         paymentDate: new Date(),
         notes: notes || null,
         recordedBy: session.id,

@@ -52,9 +52,9 @@ interface ParentStats {
 }
 
 function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-SS", {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "SSP",
+    currency: "USD",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);

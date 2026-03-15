@@ -1,6 +1,9 @@
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth/session";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -10,10 +13,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { PlusCircle } from "lucide-react";
 
 export const metadata = { title: "Scholarships" };
 
 export default async function ScholarshipsPage() {
+  const session = await getSession();
+  const isAdmin =
+    session?.role === "SUPER_ADMIN" ||
+    session?.role === "ADMIN" ||
+    session?.role === "FINANCE";
+
   const scholarships = await db.scholarship.findMany({
     include: {
       student: {
@@ -23,13 +33,25 @@ export default async function ScholarshipsPage() {
     orderBy: { startDate: "desc" },
   });
 
+  const now = new Date();
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Scholarships</h1>
-        <p className="text-muted-foreground">
-          Student scholarships and financial aid.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Scholarships</h1>
+          <p className="text-muted-foreground">
+            Student scholarships and financial aid.
+          </p>
+        </div>
+        {isAdmin && (
+          <Button asChild>
+            <Link href="/fees/scholarships/new">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Create Scholarship
+            </Link>
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -44,6 +66,7 @@ export default async function ScholarshipsPage() {
                 <TableHead className="text-center">%</TableHead>
                 <TableHead>Start</TableHead>
                 <TableHead>End</TableHead>
+                <TableHead className="text-center">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -62,7 +85,7 @@ export default async function ScholarshipsPage() {
                   </TableCell>
                   <TableCell>{s.sponsor}</TableCell>
                   <TableCell className="text-right font-mono">
-                    {s.amount ? formatCurrency(Number(s.amount), "SSP") : "—"}
+                    {s.amount ? formatCurrency(Number(s.amount)) : "—"}
                   </TableCell>
                   <TableCell className="text-center">
                     {s.percentage ? `${s.percentage}%` : "—"}
@@ -73,11 +96,18 @@ export default async function ScholarshipsPage() {
                   <TableCell className="text-sm">
                     {formatDate(s.endDate)}
                   </TableCell>
+                  <TableCell className="text-center">
+                    {s.endDate >= now ? (
+                      <Badge variant="default">Active</Badge>
+                    ) : (
+                      <Badge variant="secondary">Expired</Badge>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
               {scholarships.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     No scholarships recorded.
                   </TableCell>
                 </TableRow>
