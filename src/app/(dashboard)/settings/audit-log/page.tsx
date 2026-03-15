@@ -10,8 +10,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export const metadata = { title: "Audit Log" };
+
+const ACTION_COLORS: Record<string, string> = {
+  CREATE: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+  UPDATE: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+  DELETE: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+  LOGIN:
+    "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+};
 
 export default async function AuditLogPage() {
   const logs = await db.auditLog.findMany({
@@ -20,13 +31,41 @@ export default async function AuditLogPage() {
     take: 200,
   });
 
+  const actionCounts = logs.reduce(
+    (acc, log) => {
+      acc[log.action] = (acc[log.action] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Audit Log</h1>
-        <p className="text-muted-foreground">
-          System activity trail — last 200 entries.
-        </p>
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" asChild>
+          <Link href="/settings">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Audit Log</h1>
+          <p className="text-muted-foreground">
+            System activity trail — last 200 entries.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {Object.entries(actionCounts).map(([action, count]) => (
+          <Badge
+            key={action}
+            className={ACTION_COLORS[action] ?? ""}
+            variant="outline"
+          >
+            {action}: {count}
+          </Badge>
+        ))}
+        <Badge variant="secondary">Total: {logs.length}</Badge>
       </div>
 
       <Card>
@@ -57,7 +96,12 @@ export default async function AuditLogPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{log.action}</Badge>
+                    <Badge
+                      className={ACTION_COLORS[log.action] ?? ""}
+                      variant="outline"
+                    >
+                      {log.action}
+                    </Badge>
                   </TableCell>
                   <TableCell className="font-mono text-sm">
                     {log.entityType}

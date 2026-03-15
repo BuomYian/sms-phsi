@@ -40,6 +40,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { NAV_ITEMS, INSTITUTION_SHORT } from "@/constants";
 import { type SessionUser, Role } from "@/types";
 import { getInitials } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { ChevronRight, GraduationCap, LogOut, User } from "lucide-react";
 
 // Dynamic icon component
@@ -62,6 +63,29 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 export function AppSidebar({ user, onLogout, ...props }: AppSidebarProps) {
   const pathname = usePathname();
   const { state } = useSidebar();
+
+  // Fetch unread message count
+  const [unreadCount, setUnreadCount] = React.useState(0);
+  React.useEffect(() => {
+    let active = true;
+    async function fetchUnread() {
+      try {
+        const res = await fetch("/api/messages/unread-count");
+        if (res.ok) {
+          const data = await res.json();
+          if (active) setUnreadCount(data.count);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [pathname]);
 
   // Filter nav items by the user's role
   const filteredNav = NAV_ITEMS.filter((item) =>
@@ -122,6 +146,11 @@ export function AppSidebar({ user, onLogout, ...props }: AppSidebarProps) {
                         <Link href={item.href}>
                           <DynamicIcon name={item.icon} />
                           <span>{item.title}</span>
+                          {item.href === "/messages" && unreadCount > 0 && (
+                            <Badge className="ml-auto h-5 min-w-5 px-1 text-xs">
+                              {unreadCount}
+                            </Badge>
+                          )}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

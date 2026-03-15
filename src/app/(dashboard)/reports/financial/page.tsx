@@ -1,6 +1,9 @@
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export const metadata = { title: "Financial Report" };
 
@@ -26,13 +29,27 @@ export default async function FinancialReportPage() {
     where: { balance: { gt: 0 } },
   });
 
+  const maxMethodAmount = Math.max(
+    ...paymentsByMethod.map((pm) => Number(pm._sum.amount ?? 0)),
+    1,
+  );
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Financial Report</h1>
-        <p className="text-muted-foreground">
-          Revenue, collections, and financial health.
-        </p>
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" asChild>
+          <Link href="/reports">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Financial Report
+          </h1>
+          <p className="text-muted-foreground">
+            Revenue, collections, and financial health.
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -82,6 +99,29 @@ export default async function FinancialReportPage() {
         </Card>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Collection Progress</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <div className="flex-1 h-6 bg-muted rounded overflow-hidden">
+              <div
+                className={`h-full rounded ${Number(collectionRate) >= 75 ? "bg-green-500" : Number(collectionRate) >= 50 ? "bg-amber-500" : "bg-red-500"}`}
+                style={{ width: `${collectionRate}%` }}
+              />
+            </div>
+            <span className="text-2xl font-bold min-w-20 text-right">
+              {collectionRate}%
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {formatCurrency(paid)} collected out of {formatCurrency(billed)}{" "}
+            billed.
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -91,25 +131,34 @@ export default async function FinancialReportPage() {
             {paymentsByMethod.length === 0 ? (
               <p className="text-sm text-muted-foreground">No payments yet.</p>
             ) : (
-              <div className="space-y-3">
-                {paymentsByMethod.map((pm) => (
-                  <div
-                    key={pm.paymentMethod}
-                    className="flex justify-between items-center"
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {pm.paymentMethod.replace("_", " ")}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {pm._count} transactions
-                      </p>
+              <div className="space-y-4">
+                {paymentsByMethod.map((pm) => {
+                  const amt = Number(pm._sum.amount ?? 0);
+                  const pct = (amt / maxMethodAmount) * 100;
+                  return (
+                    <div key={pm.paymentMethod} className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-medium">
+                            {pm.paymentMethod.replaceAll("_", " ")}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {pm._count} transactions
+                          </p>
+                        </div>
+                        <p className="font-mono font-medium">
+                          {formatCurrency(amt)}
+                        </p>
+                      </div>
+                      <div className="h-3 bg-muted rounded overflow-hidden">
+                        <div
+                          className="h-full bg-green-500/70 rounded"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     </div>
-                    <p className="font-mono font-medium">
-                      {formatCurrency(Number(pm._sum.amount ?? 0))}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

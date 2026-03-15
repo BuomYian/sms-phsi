@@ -3,7 +3,12 @@ import ComposeForm from "./compose-form";
 
 export const metadata = { title: "Compose Message" };
 
-export default async function ComposePage() {
+export default async function ComposePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ replyTo?: string; subject?: string }>;
+}) {
+  const { replyTo, subject } = await searchParams;
   const users = await db.user.findMany({
     where: { isActive: true },
     select: { id: true, fullName: true, email: true, role: true },
@@ -18,7 +23,11 @@ export default async function ComposePage() {
           Send a direct message to a user.
         </p>
       </div>
-      <ComposeForm users={users} />
+      <ComposeForm
+        users={users}
+        defaultRecipientId={replyTo}
+        defaultSubject={subject}
+      />
     </div>
   );
 }

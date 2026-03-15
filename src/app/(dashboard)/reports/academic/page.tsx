@@ -1,6 +1,9 @@
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export const metadata = { title: "Academic Report" };
 
@@ -19,14 +22,63 @@ export default async function AcademicReportPage() {
   });
 
   const totalGraded = gradeDistribution.reduce((s, g) => s + g._count, 0);
+  const passCount = gradeDistribution
+    .filter((g) => g.gradeLetter !== "F")
+    .reduce((s, g) => s + g._count, 0);
+  const passRate =
+    totalGraded > 0 ? ((passCount / totalGraded) * 100).toFixed(1) : "0";
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Academic Report</h1>
-        <p className="text-muted-foreground">
-          Program performance and grade distributions.
-        </p>
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" asChild>
+          <Link href="/reports">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Academic Report</h1>
+          <p className="text-muted-foreground">
+            Program performance and grade distributions.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Active Programs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{programs.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Approved Grades
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{totalGraded}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Pass Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p
+              className={`text-2xl font-bold ${Number(passRate) >= 50 ? "text-green-600" : "text-red-600"}`}
+            >
+              {passRate}%
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>

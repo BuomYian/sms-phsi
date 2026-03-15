@@ -80,7 +80,12 @@ export default async function MessagesPage() {
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium truncate">{m.subject}</p>
+                      <Link
+                        href={`/messages/${m.id}`}
+                        className="font-medium truncate hover:underline"
+                      >
+                        {m.subject}
+                      </Link>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {formatRelativeTime(m.createdAt)}
                       </span>
@@ -110,7 +115,12 @@ export default async function MessagesPage() {
                   <MailOpen className="mt-0.5 h-4 w-4 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium truncate">{m.subject}</p>
+                      <Link
+                        href={`/messages/${m.id}`}
+                        className="font-medium truncate hover:underline"
+                      >
+                        {m.subject}
+                      </Link>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {formatRelativeTime(m.createdAt)}
                       </span>

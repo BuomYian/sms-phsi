@@ -66,7 +66,7 @@ export default async function ReportsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
         <p className="text-muted-foreground">
-          Institutional analytics and downloadable reports.
+          Institutional analytics and reports.
         </p>
       </div>
 

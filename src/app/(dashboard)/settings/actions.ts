@@ -124,3 +124,36 @@ export async function toggleUserStatusAction(
     return { error: "Failed to update user." };
   }
 }
+
+export async function resetUserPasswordAction(
+  userId: string,
+  newPassword: string,
+): Promise<SettingsActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  if (!newPassword || newPassword.length < 6) {
+    return { error: "Password must be at least 6 characters." };
+  }
+
+  try {
+    const user = await db.user.findUnique({ where: { id: userId } });
+    if (!user) return { error: "User not found." };
+
+    const hashedPassword = await hashPassword(newPassword);
+    await db.user.update({
+      where: { id: userId },
+      data: { passwordHash: hashedPassword },
+    });
+
+    await logAction(session.id, "UPDATE", "User", userId, {
+      action: "password_reset",
+      email: user.email,
+    });
+
+    return { success: true, message: `Password reset for ${user.email}.` };
+  } catch (error) {
+    console.error("Reset password error:", error);
+    return { error: "Failed to reset password." };
+  }
+}

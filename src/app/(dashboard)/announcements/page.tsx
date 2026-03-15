@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Eye } from "lucide-react";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
 
 export const metadata = { title: "Announcements" };
@@ -69,12 +69,24 @@ export default async function AnnouncementsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="whitespace-pre-wrap text-sm">{a.body}</p>
-                {a.expiryDate && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Expires: {formatDate(a.expiryDate)}
-                  </p>
-                )}
+                <p className="whitespace-pre-wrap text-sm line-clamp-3">
+                  {a.body}
+                </p>
+                <div className="mt-3 flex items-center justify-between">
+                  {a.expiryDate ? (
+                    <p className="text-xs text-muted-foreground">
+                      Expires: {formatDate(a.expiryDate)}
+                    </p>
+                  ) : (
+                    <span />
+                  )}
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/announcements/${a.id}`}>
+                      <Eye className="mr-1 h-3.5 w-3.5" />
+                      View
+                    </Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

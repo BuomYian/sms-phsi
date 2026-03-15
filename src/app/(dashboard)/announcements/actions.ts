@@ -59,6 +59,79 @@ export async function createAnnouncementAction(
   }
 }
 
+export async function updateAnnouncementAction(
+  id: string,
+  _prevState: CommActionState,
+  formData: FormData,
+): Promise<CommActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN") {
+    return { error: "Only administrators can edit announcements." };
+  }
+
+  const title = formData.get("title") as string;
+  const body = formData.get("body") as string;
+  const targetAudience = formData.get("targetAudience") as string;
+  const rawProgramId = formData.get("programId") as string;
+  const programId =
+    rawProgramId && rawProgramId !== "none" ? rawProgramId : null;
+  const publishDate = formData.get("publishDate") as string;
+  const expiryDate = (formData.get("expiryDate") as string) || null;
+
+  if (!title || !body || !targetAudience) {
+    return { error: "Title, body, and target audience are required." };
+  }
+
+  try {
+    await db.announcement.update({
+      where: { id },
+      data: {
+        title,
+        body,
+        targetAudience,
+        programId,
+        publishDate: publishDate ? new Date(publishDate) : new Date(),
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+      },
+    });
+
+    await logAction(session.id, "UPDATE", "Announcement", id, {
+      title,
+      targetAudience,
+    });
+
+    revalidatePath("/announcements");
+    return { success: true, message: "Announcement updated." };
+  } catch (error) {
+    console.error("Update announcement error:", error);
+    return { error: "Failed to update announcement." };
+  }
+}
+
+export async function deleteAnnouncementAction(
+  id: string,
+): Promise<CommActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN") {
+    return { error: "Only administrators can delete announcements." };
+  }
+
+  try {
+    await db.announcement.delete({ where: { id } });
+    await logAction(session.id, "DELETE", "Announcement", id, {});
+
+    revalidatePath("/announcements");
+    return { success: true, message: "Announcement deleted." };
+  } catch (error) {
+    console.error("Delete announcement error:", error);
+    return { error: "Failed to delete announcement." };
+  }
+}
+
 export async function sendMessageAction(
   _prevState: CommActionState,
   formData: FormData,

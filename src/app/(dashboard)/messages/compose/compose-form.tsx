@@ -1,10 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import {
-  sendMessageAction,
-  type CommActionState,
-} from "../../announcements/actions";
+import { sendMessageAction, type MessageActionState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,8 +23,16 @@ type UserOption = {
   role: string;
 };
 
-export default function ComposeForm({ users }: { users: UserOption[] }) {
-  const initialState: CommActionState = {};
+export default function ComposeForm({
+  users,
+  defaultRecipientId,
+  defaultSubject,
+}: {
+  users: UserOption[];
+  defaultRecipientId?: string;
+  defaultSubject?: string;
+}) {
+  const initialState: MessageActionState = {};
   const [state, formAction, isPending] = useActionState(
     sendMessageAction,
     initialState,
@@ -47,7 +52,11 @@ export default function ComposeForm({ users }: { users: UserOption[] }) {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="recipientId">To *</Label>
-            <Select name="recipientId" required>
+            <Select
+              name="recipientId"
+              required
+              defaultValue={defaultRecipientId}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select recipient" />
               </SelectTrigger>
@@ -67,6 +76,7 @@ export default function ComposeForm({ users }: { users: UserOption[] }) {
               id="subject"
               name="subject"
               required
+              defaultValue={defaultSubject}
               placeholder="Message subject"
             />
           </div>
