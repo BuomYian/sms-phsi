@@ -89,6 +89,12 @@ const MODULE_PERMISSIONS: Record<string, Record<Action, Role[]>> = {
     update: [Role.SUPER_ADMIN, Role.ADMIN, Role.FINANCE],
     delete: [Role.SUPER_ADMIN],
   },
+  timetable: {
+    create: [Role.SUPER_ADMIN, Role.ADMIN],
+    read: [Role.SUPER_ADMIN, Role.ADMIN, Role.INSTRUCTOR, Role.STUDENT],
+    update: [Role.SUPER_ADMIN, Role.ADMIN],
+    delete: [Role.SUPER_ADMIN, Role.ADMIN],
+  },
   payments: {
     create: [Role.SUPER_ADMIN, Role.ADMIN, Role.FINANCE],
     read: [Role.SUPER_ADMIN, Role.ADMIN, Role.FINANCE, Role.STUDENT],

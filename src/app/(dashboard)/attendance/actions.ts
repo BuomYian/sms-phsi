@@ -22,7 +22,6 @@ export async function markAttendanceAction(
   const courseEnrollmentId = formData.get("courseEnrollmentId") as string;
   const date = formData.get("date") as string;
   const status = formData.get("status") as string;
-  const remarks = formData.get("remarks") as string;
 
   if (!courseEnrollmentId || !date || !status) {
     return { error: "Missing required fields." };
@@ -68,27 +67,33 @@ export async function bulkMarkAttendanceAction(
   const session = await getSession();
   if (!session) return { error: "Unauthorized" };
 
+  if (records.length === 0) {
+    return { error: "No records to save." };
+  }
+
   try {
-    for (const record of records) {
-      await db.attendance.upsert({
-        where: {
-          courseEnrollmentId_date: {
+    await db.$transaction(
+      records.map((record) =>
+        db.attendance.upsert({
+          where: {
+            courseEnrollmentId_date: {
+              courseEnrollmentId: record.courseEnrollmentId,
+              date: new Date(record.date),
+            },
+          },
+          update: {
+            status: record.status as AttendanceStatus,
+            markedBy: session.id,
+          },
+          create: {
             courseEnrollmentId: record.courseEnrollmentId,
             date: new Date(record.date),
+            status: record.status as AttendanceStatus,
+            markedBy: session.id,
           },
-        },
-        update: {
-          status: record.status as AttendanceStatus,
-          markedBy: session.id,
-        },
-        create: {
-          courseEnrollmentId: record.courseEnrollmentId,
-          date: new Date(record.date),
-          status: record.status as AttendanceStatus,
-          markedBy: session.id,
-        },
-      });
-    }
+        }),
+      ),
+    );
 
     await logAction(session.id, "CREATE", "Attendance", "bulk", {
       count: records.length,
@@ -102,5 +107,24 @@ export async function bulkMarkAttendanceAction(
   } catch (error) {
     console.error("Bulk attendance error:", error);
     return { error: "Failed to mark attendance." };
+  }
+}
+
+export async function deleteAttendanceAction(
+  attendanceId: string,
+): Promise<AttendanceActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  try {
+    await db.attendance.delete({ where: { id: attendanceId } });
+
+    await logAction(session.id, "DELETE", "Attendance", attendanceId);
+
+    revalidatePath("/attendance");
+    return { success: true, message: "Attendance record deleted." };
+  } catch (error) {
+    console.error("Delete attendance error:", error);
+    return { error: "Failed to delete attendance record." };
   }
 }

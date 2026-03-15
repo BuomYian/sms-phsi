@@ -31,35 +31,45 @@ export async function createEnrollmentAction(
   }
 
   try {
-    // Check for duplicate enrollment
-    const existing = await db.enrollment.findFirst({
-      where: { studentId, semesterId },
-    });
-    if (existing) {
-      return { error: "Student is already enrolled in this semester." };
-    }
+    const enrollment = await db.$transaction(async (tx) => {
+      // Check for duplicate enrollment
+      const existing = await tx.enrollment.findFirst({
+        where: { studentId, semesterId },
+      });
+      if (existing) {
+        throw new Error("Student is already enrolled in this semester.");
+      }
 
-    // Check total credit hours
-    const subjects = await db.subject.findMany({
-      where: { id: { in: subjectIds } },
-    });
-    const totalCredits = subjects.reduce((sum, s) => sum + s.creditHours, 0);
-    if (totalCredits > 24) {
-      return {
-        error: `Total credit hours (${totalCredits}) exceed the maximum of 24.`,
-      };
-    }
+      // Check total credit hours
+      const subjects = await tx.subject.findMany({
+        where: { id: { in: subjectIds } },
+      });
+      const totalCredits = subjects.reduce((sum, s) => sum + s.creditHours, 0);
+      if (totalCredits > 24) {
+        throw new Error(
+          `Total credit hours (${totalCredits}) exceed the maximum of 24.`,
+        );
+      }
 
-    const enrollment = await db.enrollment.create({
-      data: {
-        studentId,
-        semesterId,
-        status: "PENDING",
-        courseEnrollments: {
-          create: subjectIds.map((subjectId) => ({ subjectId })),
+      return await tx.enrollment.create({
+        data: {
+          studentId,
+          semesterId,
+          status: "PENDING",
+          courseEnrollments: {
+            create: subjectIds.map((subjectId) => ({ subjectId })),
+          },
         },
-      },
+        include: {
+          courseEnrollments: { include: { subject: true } },
+        },
+      });
     });
+
+    const totalCredits = enrollment.courseEnrollments.reduce(
+      (sum, ce) => sum + ce.subject.creditHours,
+      0,
+    );
 
     await logAction(session.id, "CREATE", "Enrollment", enrollment.id, {
       studentId,
@@ -74,7 +84,9 @@ export async function createEnrollmentAction(
     };
   } catch (error) {
     console.error("Create enrollment error:", error);
-    return { error: "Failed to create enrollment." };
+    const msg =
+      error instanceof Error ? error.message : "Failed to create enrollment.";
+    return { error: msg };
   }
 }
 
@@ -87,7 +99,11 @@ export async function approveEnrollmentAction(
   try {
     await db.enrollment.update({
       where: { id: enrollmentId },
-      data: { status: "APPROVED" },
+      data: {
+        status: "APPROVED",
+        approvedBy: session.id,
+        approvedDate: new Date(),
+      },
     });
 
     await logAction(session.id, "UPDATE", "Enrollment", enrollmentId, {
@@ -95,6 +111,7 @@ export async function approveEnrollmentAction(
     });
 
     revalidatePath("/enrollment");
+    revalidatePath(`/enrollment/${enrollmentId}`);
     return { success: true, message: "Enrollment approved." };
   } catch (error) {
     console.error("Approve enrollment error:", error);
@@ -119,9 +136,171 @@ export async function rejectEnrollmentAction(
     });
 
     revalidatePath("/enrollment");
+    revalidatePath(`/enrollment/${enrollmentId}`);
     return { success: true, message: "Enrollment rejected." };
   } catch (error) {
     console.error("Reject enrollment error:", error);
     return { error: "Failed to reject enrollment." };
+  }
+}
+
+export async function setConditionalEnrollmentAction(
+  enrollmentId: string,
+  notes: string,
+): Promise<EnrollmentActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  try {
+    await db.enrollment.update({
+      where: { id: enrollmentId },
+      data: {
+        status: "CONDITIONAL",
+        notes,
+        approvedBy: session.id,
+        approvedDate: new Date(),
+      },
+    });
+
+    await logAction(session.id, "UPDATE", "Enrollment", enrollmentId, {
+      action: "conditional",
+      notes,
+    });
+
+    revalidatePath("/enrollment");
+    revalidatePath(`/enrollment/${enrollmentId}`);
+    return {
+      success: true,
+      message: "Enrollment set to conditional.",
+    };
+  } catch (error) {
+    console.error("Conditional enrollment error:", error);
+    return { error: "Failed to update enrollment." };
+  }
+}
+
+export async function updateEnrollmentSubjectsAction(
+  enrollmentId: string,
+  _prevState: EnrollmentActionState,
+  formData: FormData,
+): Promise<EnrollmentActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const subjectIds = formData.getAll("subjectIds") as string[];
+
+  if (subjectIds.length === 0) {
+    return { error: "Select at least one subject." };
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      const enrollment = await tx.enrollment.findUnique({
+        where: { id: enrollmentId },
+      });
+      if (!enrollment) throw new Error("Enrollment not found.");
+
+      if (
+        enrollment.status !== "PENDING" &&
+        enrollment.status !== "CONDITIONAL"
+      ) {
+        throw new Error(
+          "Only pending or conditional enrollments can be modified.",
+        );
+      }
+
+      const subjects = await tx.subject.findMany({
+        where: { id: { in: subjectIds } },
+      });
+      const totalCredits = subjects.reduce((sum, s) => sum + s.creditHours, 0);
+      if (totalCredits > 24) {
+        throw new Error(
+          `Total credit hours (${totalCredits}) exceed the maximum of 24.`,
+        );
+      }
+
+      // Remove existing course enrollments and recreate
+      await tx.courseEnrollment.deleteMany({
+        where: { enrollmentId },
+      });
+
+      await tx.courseEnrollment.createMany({
+        data: subjectIds.map((subjectId) => ({
+          enrollmentId,
+          subjectId,
+        })),
+      });
+
+      // Reset to pending if it was conditional
+      if (enrollment.status === "CONDITIONAL") {
+        await tx.enrollment.update({
+          where: { id: enrollmentId },
+          data: { status: "PENDING", notes: null },
+        });
+      }
+    });
+
+    await logAction(session.id, "UPDATE", "Enrollment", enrollmentId, {
+      action: "subjects_updated",
+      subjects: subjectIds.length,
+    });
+
+    revalidatePath("/enrollment");
+    revalidatePath(`/enrollment/${enrollmentId}`);
+    return {
+      success: true,
+      message: `Subjects updated. ${subjectIds.length} subject(s) enrolled.`,
+    };
+  } catch (error) {
+    console.error("Update enrollment subjects error:", error);
+    const msg =
+      error instanceof Error
+        ? error.message
+        : "Failed to update enrollment subjects.";
+    return { error: msg };
+  }
+}
+
+export async function deleteEnrollmentAction(
+  enrollmentId: string,
+): Promise<EnrollmentActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  try {
+    const enrollment = await db.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        courseEnrollments: {
+          include: { _count: { select: { attendances: true } } },
+        },
+      },
+    });
+    if (!enrollment) return { error: "Enrollment not found." };
+
+    const hasAttendance = enrollment.courseEnrollments.some(
+      (ce) => ce._count.attendances > 0,
+    );
+    if (hasAttendance) {
+      return {
+        error:
+          "Cannot delete enrollment with attendance records. Reject it instead.",
+      };
+    }
+
+    await db.$transaction(async (tx) => {
+      await tx.courseEnrollment.deleteMany({ where: { enrollmentId } });
+      await tx.enrollment.delete({ where: { id: enrollmentId } });
+    });
+
+    await logAction(session.id, "DELETE", "Enrollment", enrollmentId, {
+      action: "deleted",
+    });
+
+    revalidatePath("/enrollment");
+    return { success: true, message: "Enrollment deleted." };
+  } catch (error) {
+    console.error("Delete enrollment error:", error);
+    return { error: "Failed to delete enrollment." };
   }
 }

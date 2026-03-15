@@ -8,6 +8,7 @@ import { createStudentSchema } from "@/lib/validators";
 import { revalidatePath } from "next/cache";
 import { generateStudentId } from "@/lib/utils";
 import { StudentStatus } from "@/types";
+import { AdmissionType } from "@prisma/client";
 
 export type StudentActionState = {
   error?: string;
@@ -159,7 +160,9 @@ export async function updateStudentAction(
         where: { id },
         data: {
           programId: (raw.programId as string) || undefined,
-          admissionType: (raw.admissionType as string) || undefined,
+          admissionType: raw.admissionType
+            ? (raw.admissionType as AdmissionType)
+            : undefined,
           yearOfStudy: raw.yearOfStudy ? Number(raw.yearOfStudy) : undefined,
           nationality: (raw.nationality as string) || undefined,
           nationalId: (raw.nationalId as string) || undefined,

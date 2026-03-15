@@ -338,3 +338,234 @@ export async function createAcademicYearAction(
     return { error: "Failed to create academic year." };
   }
 }
+
+export async function updateAcademicYearAction(
+  id: string,
+  _prevState: AcademicActionState,
+  formData: FormData,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const name = formData.get("name") as string;
+  const startDate = formData.get("startDate") as string;
+  const endDate = formData.get("endDate") as string;
+  const isCurrent = formData.get("isCurrent") === "true";
+
+  if (!name || !startDate || !endDate) {
+    return { error: "Name, start date, and end date are required." };
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      const existing = await tx.academicYear.findUnique({ where: { id } });
+      if (!existing) throw new Error("Not found");
+
+      if (isCurrent && !existing.isCurrent) {
+        await tx.academicYear.updateMany({
+          where: { isCurrent: true },
+          data: { isCurrent: false },
+        });
+      }
+
+      await tx.academicYear.update({
+        where: { id },
+        data: {
+          name,
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          isCurrent,
+        },
+      });
+    });
+
+    await logAction(session.id, "UPDATE", "AcademicYear", id, { name });
+
+    revalidatePath("/academics/calendar");
+    revalidatePath(`/academics/calendar/${id}`);
+    return { success: true, message: `Academic year "${name}" updated.` };
+  } catch (error) {
+    console.error("Update academic year error:", error);
+    return { error: "Failed to update academic year." };
+  }
+}
+
+export async function deleteAcademicYearAction(
+  id: string,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  try {
+    const ay = await db.academicYear.findUnique({
+      where: { id },
+      include: {
+        semesters: {
+          include: {
+            _count: { select: { enrollments: true } },
+          },
+        },
+      },
+    });
+    if (!ay) return { error: "Academic year not found." };
+
+    const hasEnrollments = ay.semesters.some((s) => s._count.enrollments > 0);
+    if (hasEnrollments) {
+      return {
+        error:
+          "Cannot delete this academic year because it has semesters with enrollments.",
+      };
+    }
+
+    await db.$transaction(async (tx) => {
+      await tx.semester.deleteMany({ where: { academicYearId: id } });
+      await tx.academicYear.delete({ where: { id } });
+    });
+
+    await logAction(session.id, "DELETE", "AcademicYear", id, {
+      name: ay.name,
+    });
+
+    revalidatePath("/academics/calendar");
+    return { success: true, message: `Academic year "${ay.name}" deleted.` };
+  } catch (error) {
+    console.error("Delete academic year error:", error);
+    return { error: "Failed to delete academic year." };
+  }
+}
+
+// --------------- Semesters ---------------
+export async function createSemesterAction(
+  _prevState: AcademicActionState,
+  formData: FormData,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const academicYearId = formData.get("academicYearId") as string;
+  const name = formData.get("name") as string;
+  const startDate = formData.get("startDate") as string;
+  const endDate = formData.get("endDate") as string;
+  const isCurrent = formData.get("isCurrent") === "true";
+
+  if (!academicYearId || !name || !startDate || !endDate) {
+    return {
+      error: "Academic year, name, start date, and end date are required.",
+    };
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      if (isCurrent) {
+        await tx.semester.updateMany({
+          where: { isCurrent: true },
+          data: { isCurrent: false },
+        });
+      }
+
+      await tx.semester.create({
+        data: {
+          academicYearId,
+          name,
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          isCurrent,
+        },
+      });
+    });
+
+    await logAction(session.id, "CREATE", "Semester", academicYearId, {
+      name,
+    });
+
+    revalidatePath("/academics/calendar");
+    revalidatePath(`/academics/calendar/${academicYearId}`);
+    return { success: true, message: `Semester "${name}" created.` };
+  } catch (error) {
+    console.error("Create semester error:", error);
+    return { error: "Failed to create semester." };
+  }
+}
+
+export async function updateSemesterAction(
+  id: string,
+  _prevState: AcademicActionState,
+  formData: FormData,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const name = formData.get("name") as string;
+  const startDate = formData.get("startDate") as string;
+  const endDate = formData.get("endDate") as string;
+  const isCurrent = formData.get("isCurrent") === "true";
+
+  if (!name || !startDate || !endDate) {
+    return { error: "Name, start date, and end date are required." };
+  }
+
+  try {
+    const sem = await db.semester.findUnique({ where: { id } });
+    if (!sem) return { error: "Semester not found." };
+
+    await db.$transaction(async (tx) => {
+      if (isCurrent && !sem.isCurrent) {
+        await tx.semester.updateMany({
+          where: { isCurrent: true },
+          data: { isCurrent: false },
+        });
+      }
+
+      await tx.semester.update({
+        where: { id },
+        data: {
+          name,
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          isCurrent,
+        },
+      });
+    });
+
+    await logAction(session.id, "UPDATE", "Semester", id, { name });
+
+    revalidatePath("/academics/calendar");
+    revalidatePath(`/academics/calendar/${sem.academicYearId}`);
+    return { success: true, message: `Semester "${name}" updated.` };
+  } catch (error) {
+    console.error("Update semester error:", error);
+    return { error: "Failed to update semester." };
+  }
+}
+
+export async function deleteSemesterAction(
+  id: string,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  try {
+    const sem = await db.semester.findUnique({
+      where: { id },
+      include: { _count: { select: { enrollments: true } } },
+    });
+    if (!sem) return { error: "Semester not found." };
+
+    if (sem._count.enrollments > 0) {
+      return {
+        error: "Cannot delete this semester because it has enrollments.",
+      };
+    }
+
+    await db.semester.delete({ where: { id } });
+
+    await logAction(session.id, "DELETE", "Semester", id, { name: sem.name });
+
+    revalidatePath("/academics/calendar");
+    revalidatePath(`/academics/calendar/${sem.academicYearId}`);
+    return { success: true, message: `Semester "${sem.name}" deleted.` };
+  } catch (error) {
+    console.error("Delete semester error:", error);
+    return { error: "Failed to delete semester." };
+  }
+}
