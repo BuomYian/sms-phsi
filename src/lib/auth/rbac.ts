@@ -12,6 +12,7 @@ export const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   ],
   "/students": [Role.SUPER_ADMIN, Role.ADMIN, Role.INSTRUCTOR, Role.PARENT],
   "/staff": [Role.SUPER_ADMIN, Role.ADMIN],
+  "/parents": [Role.SUPER_ADMIN, Role.ADMIN],
   "/academics": [Role.SUPER_ADMIN, Role.ADMIN, Role.INSTRUCTOR],
   "/enrollment": [Role.SUPER_ADMIN, Role.ADMIN, Role.STUDENT],
   "/timetable": [Role.SUPER_ADMIN, Role.ADMIN, Role.INSTRUCTOR, Role.STUDENT],

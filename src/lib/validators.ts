@@ -117,6 +117,14 @@ export const createStaffSchema = z.object({
   role: z.enum(["ADMIN", "FINANCE", "INSTRUCTOR"]).default("INSTRUCTOR"),
 });
 
+// Parent Validators
+export const createParentSchema = z.object({
+  fullName: z.string().min(2, "Full name is required"),
+  email: z.string().email("Invalid email address"),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+});
+
 // Academic Validators
 export const createProgramSchema = z.object({
   name: z.string().min(2, "Program name is required"),

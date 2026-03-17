@@ -134,6 +134,26 @@ export const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
+    title: "Parents",
+    href: "/parents",
+    icon: "Users",
+    roles: [Role.SUPER_ADMIN, Role.ADMIN],
+    children: [
+      {
+        title: "All Parents",
+        href: "/parents",
+        icon: "Users",
+        roles: [Role.SUPER_ADMIN, Role.ADMIN],
+      },
+      {
+        title: "Add Parent",
+        href: "/parents/new",
+        icon: "UserPlus",
+        roles: [Role.SUPER_ADMIN, Role.ADMIN],
+      },
+    ],
+  },
+  {
     title: "Academics",
     href: "/academics",
     icon: "BookOpen",
