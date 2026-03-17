@@ -407,3 +407,92 @@ export async function importStudentsAction(
     errors: errors.length > 0 ? errors : undefined,
   };
 }
+
+// ===========================
+// PARENT LINKING
+// ===========================
+
+export async function linkParentAction(
+  studentId: string,
+  parentUserId: string,
+): Promise<StudentActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN") {
+    return { error: "Only admins can link parents to students." };
+  }
+
+  try {
+    const [student, parent] = await Promise.all([
+      db.student.findUnique({
+        where: { id: studentId },
+        select: { id: true, studentIdNumber: true },
+      }),
+      db.user.findUnique({
+        where: { id: parentUserId },
+        select: { id: true, role: true, fullName: true },
+      }),
+    ]);
+
+    if (!student) return { error: "Student not found." };
+    if (!parent) return { error: "Parent user not found." };
+    if (parent.role !== "PARENT")
+      return { error: "Selected user is not a parent." };
+
+    const existing = await db.parentStudent.findUnique({
+      where: { parentId_studentId: { parentId: parentUserId, studentId } },
+    });
+    if (existing)
+      return { error: "This parent is already linked to this student." };
+
+    await db.parentStudent.create({
+      data: { parentId: parentUserId, studentId },
+    });
+
+    await logAction(session.id, "CREATE", "ParentStudent", studentId, {
+      parentId: parentUserId,
+      parentName: parent.fullName,
+    });
+
+    revalidatePath(`/students/${studentId}`);
+    return {
+      success: true,
+      message: `Parent "${parent.fullName}" linked successfully.`,
+    };
+  } catch (error) {
+    console.error("Link parent error:", error);
+    return { error: "Failed to link parent." };
+  }
+}
+
+export async function unlinkParentAction(
+  studentId: string,
+  parentUserId: string,
+): Promise<StudentActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN") {
+    return { error: "Only admins can unlink parents from students." };
+  }
+
+  try {
+    const link = await db.parentStudent.findUnique({
+      where: { parentId_studentId: { parentId: parentUserId, studentId } },
+    });
+    if (!link) return { error: "Parent link not found." };
+
+    await db.parentStudent.delete({ where: { id: link.id } });
+
+    await logAction(session.id, "DELETE", "ParentStudent", studentId, {
+      parentId: parentUserId,
+    });
+
+    revalidatePath(`/students/${studentId}`);
+    return { success: true, message: "Parent unlinked successfully." };
+  } catch (error) {
+    console.error("Unlink parent error:", error);
+    return { error: "Failed to unlink parent." };
+  }
+}

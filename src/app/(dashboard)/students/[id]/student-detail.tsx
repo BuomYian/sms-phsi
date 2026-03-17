@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +13,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { STATUS_COLORS } from "@/constants";
 import { getInitials, formatDate, formatCurrency } from "@/lib/utils";
 import {
@@ -24,8 +32,13 @@ import {
   GraduationCap,
   User,
   Heart,
+  Users,
+  UserPlus,
+  X,
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
+import { linkParentAction, unlinkParentAction } from "../actions";
 
 interface StudentDetailProps {
   student: {
@@ -92,7 +105,19 @@ interface StudentDetailProps {
       };
     }[];
     payments: { amount: unknown; paymentDate: Date }[];
+    parentLinks: {
+      id: string;
+      parent: {
+        id: string;
+        fullName: string;
+        email: string;
+        phone: string | null;
+      };
+    }[];
   };
+  availableParents: { id: string; fullName: string; email: string }[];
+  isAdmin: boolean;
+  readOnly?: boolean;
 }
 
 function InfoRow({
@@ -115,8 +140,15 @@ function InfoRow({
   );
 }
 
-export function StudentDetail({ student }: StudentDetailProps) {
+export function StudentDetail({
+  student,
+  availableParents,
+  isAdmin,
+  readOnly,
+}: StudentDetailProps) {
   const fullName = student.user.fullName;
+  const [selectedParentId, setSelectedParentId] = useState("");
+  const [isPending, startTransition] = useTransition();
 
   const totalBilled = student.studentFees.reduce(
     (sum, f) => sum + Number(f.amountCharged),
@@ -133,7 +165,7 @@ export function StudentDetail({ student }: StudentDetailProps) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link href="/students">
+            <Link href={readOnly ? "/dashboard" : "/students"}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -158,12 +190,14 @@ export function StudentDetail({ student }: StudentDetailProps) {
             </p>
           </div>
         </div>
-        <Button asChild>
-          <Link href={`/students/${student.id}/edit`}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit Student
-          </Link>
-        </Button>
+        {!readOnly && (
+          <Button asChild>
+            <Link href={`/students/${student.id}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Student
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -173,6 +207,7 @@ export function StudentDetail({ student }: StudentDetailProps) {
           <TabsTrigger value="academic">Academic</TabsTrigger>
           <TabsTrigger value="financial">Financial</TabsTrigger>
           <TabsTrigger value="guardian">Guardian</TabsTrigger>
+          <TabsTrigger value="parents">Parents</TabsTrigger>
           <TabsTrigger value="medical">Medical</TabsTrigger>
         </TabsList>
 
@@ -444,6 +479,138 @@ export function StudentDetail({ student }: StudentDetailProps) {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Parents Tab */}
+        <TabsContent value="parents" className="space-y-4">
+          {/* Linked parents */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Linked Parents
+              </CardTitle>
+              <CardDescription>
+                Parent accounts that can view this student&apos;s information.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {student.parentLinks.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  No parents linked to this student yet.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {student.parentLinks.map((link) => (
+                    <div
+                      key={link.id}
+                      className="flex items-center justify-between rounded-lg border p-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9">
+                          <AvatarFallback className="text-xs">
+                            {getInitials(link.parent.fullName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">
+                            {link.parent.fullName}
+                          </p>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {link.parent.email}
+                            </span>
+                            {link.parent.phone && (
+                              <span className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {link.parent.phone}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          disabled={isPending}
+                          onClick={() => {
+                            startTransition(async () => {
+                              const result = await unlinkParentAction(
+                                student.id,
+                                link.parent.id,
+                              );
+                              if (result.success) toast.success(result.message);
+                              if (result.error) toast.error(result.error);
+                            });
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Add parent (admin only) */}
+          {isAdmin && availableParents.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <UserPlus className="h-4 w-4" />
+                  Link a Parent
+                </CardTitle>
+                <CardDescription>
+                  Select a parent account to link to this student.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end gap-3">
+                  <div className="flex-1 space-y-2">
+                    <Select
+                      value={selectedParentId}
+                      onValueChange={setSelectedParentId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a parent..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableParents.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.fullName} ({p.email})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    disabled={!selectedParentId || isPending}
+                    onClick={() => {
+                      startTransition(async () => {
+                        const result = await linkParentAction(
+                          student.id,
+                          selectedParentId,
+                        );
+                        if (result.success) {
+                          toast.success(result.message);
+                          setSelectedParentId("");
+                        }
+                        if (result.error) toast.error(result.error);
+                      });
+                    }}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    {isPending ? "Linking..." : "Link Parent"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </>

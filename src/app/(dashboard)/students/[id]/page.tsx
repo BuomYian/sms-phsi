@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth/session";
 import { StudentDetail } from "./student-detail";
 
 export async function generateMetadata({
@@ -23,6 +24,8 @@ export default async function StudentDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getSession();
+  const isAdmin = session?.role === "SUPER_ADMIN" || session?.role === "ADMIN";
 
   const student = await db.student.findUnique({
     where: { id },
@@ -61,10 +64,40 @@ export default async function StudentDetailPage({
       payments: {
         orderBy: { createdAt: "desc" },
       },
+      parentLinks: {
+        include: {
+          parent: {
+            select: { id: true, fullName: true, email: true, phone: true },
+          },
+        },
+      },
     },
   });
 
   if (!student) notFound();
+
+  // Parents can only view their linked children
+  if (session?.role === "PARENT") {
+    const isLinked = student.parentLinks.some(
+      (pl) => pl.parent.id === session.id,
+    );
+    if (!isLinked) redirect("/dashboard");
+  }
+
+  // Fetch available parent users (only if admin)
+  let availableParents: { id: string; fullName: string; email: string }[] = [];
+  if (isAdmin) {
+    const linkedParentIds = student.parentLinks.map((pl) => pl.parent.id);
+    availableParents = await db.user.findMany({
+      where: {
+        role: "PARENT",
+        isActive: true,
+        id: { notIn: linkedParentIds },
+      },
+      select: { id: true, fullName: true, email: true },
+      orderBy: { fullName: "asc" },
+    });
+  }
 
   // Serialize Decimal fields to numbers for client component
   const serialized = {
@@ -83,11 +116,20 @@ export default async function StudentDetailPage({
       ...p,
       amount: Number(p.amount),
     })),
+    parentLinks: student.parentLinks.map((pl) => ({
+      id: pl.id,
+      parent: pl.parent,
+    })),
   };
 
   return (
     <div className="space-y-6">
-      <StudentDetail student={serialized} />
+      <StudentDetail
+        student={serialized}
+        availableParents={availableParents}
+        isAdmin={isAdmin}
+        readOnly={session?.role === "PARENT"}
+      />
     </div>
   );
 }

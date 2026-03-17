@@ -80,6 +80,9 @@ export default function EnrollmentForm({
   const [selectedStudentId, setSelectedStudentId] = useState(
     selfStudentId ?? "",
   );
+  const [selectedSemesterId, setSelectedSemesterId] = useState(
+    () => semesters.find((s) => s.isCurrent)?.id ?? "",
+  );
 
   function handleStudentChange(value: string) {
     setSelectedStudentId(value);
@@ -221,9 +224,14 @@ export default function EnrollmentForm({
               {/* Semester select */}
               <div className="space-y-2">
                 <Label>Semester *</Label>
-                <Select
+                <input
+                  type="hidden"
                   name="semesterId"
-                  defaultValue={semesters.find((s) => s.isCurrent)?.id}
+                  value={selectedSemesterId}
+                />
+                <Select
+                  value={selectedSemesterId}
+                  onValueChange={setSelectedSemesterId}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a semester" />

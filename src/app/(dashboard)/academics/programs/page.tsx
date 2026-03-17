@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,9 @@ import Link from "next/link";
 export const metadata = { title: "Programs" };
 
 export default async function ProgramsPage() {
+  const session = await getSession();
+  const isAdmin = session?.role === "SUPER_ADMIN" || session?.role === "ADMIN";
+
   const programs = await db.program.findMany({
     include: {
       department: { select: { name: true } },
@@ -39,12 +43,14 @@ export default async function ProgramsPage() {
             Academic programs and diplomas offered by PHSI.
           </p>
         </div>
-        <Button size="sm" asChild>
-          <Link href="/academics/programs/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Program
-          </Link>
-        </Button>
+        {isAdmin && (
+          <Button size="sm" asChild>
+            <Link href="/academics/programs/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Program
+            </Link>
+          </Button>
+        )}
       </div>
 
       <Card>

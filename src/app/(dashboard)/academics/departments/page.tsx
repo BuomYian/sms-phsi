@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +17,9 @@ import Link from "next/link";
 export const metadata = { title: "Departments" };
 
 export default async function DepartmentsPage() {
+  const session = await getSession();
+  const isAdmin = session?.role === "SUPER_ADMIN" || session?.role === "ADMIN";
+
   const departments = await db.department.findMany({
     include: {
       headOfDepartment: { include: { user: { select: { fullName: true } } } },
@@ -31,12 +35,14 @@ export default async function DepartmentsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Departments</h1>
           <p className="text-muted-foreground">Academic departments at PHSI.</p>
         </div>
-        <Button size="sm" asChild>
-          <Link href="/academics/departments/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Department
-          </Link>
-        </Button>
+        {isAdmin && (
+          <Button size="sm" asChild>
+            <Link href="/academics/departments/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Department
+            </Link>
+          </Button>
+        )}
       </div>
 
       <Card>

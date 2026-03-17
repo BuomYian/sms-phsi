@@ -12,6 +12,7 @@ export const metadata = { title: "Announcements" };
 export default async function AnnouncementsPage() {
   const session = await getSession();
   const isAdmin = session?.role === "SUPER_ADMIN" || session?.role === "ADMIN";
+  const canCreate = isAdmin || session?.role === "INSTRUCTOR";
   const announcements = await db.announcement.findMany({
     include: {
       author: { select: { fullName: true } },
@@ -30,7 +31,7 @@ export default async function AnnouncementsPage() {
             Institution-wide and program-specific announcements.
           </p>
         </div>
-        {isAdmin && (
+        {canCreate && (
           <Button asChild>
             <Link href="/announcements/new">
               <Plus className="mr-2 h-4 w-4" /> New Announcement
