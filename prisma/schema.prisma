@@ -89,6 +89,13 @@ enum AdmissionType {
   MATURE_ENTRY
 }
 
+enum ClassStudentStatus {
+  ACTIVE
+  COMPLETED
+  FAILED
+  WITHDRAWN
+}
+
 // ===========================
 // USER & AUTH
 // ===========================
@@ -161,6 +168,7 @@ model Student {
   user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   program           Program       @relation(fields: [programId], references: [id])
   enrollments       Enrollment[]
+  classStudents     ClassStudent[]
   studentFees       StudentFee[]
   payments          Payment[]
   scholarships      Scholarship[]
@@ -248,6 +256,7 @@ model Program {
   department        Department   @relation(fields: [departmentId], references: [id])
   subjects          Subject[]
   students          Student[]
+  classes           AcademicClass[]
   feeStructures     FeeStructure[]
   announcements     Announcement[]
 
@@ -258,7 +267,7 @@ model Subject {
   id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name            String
   code            String      @unique
-  creditHours     Int         @map("credit_hours")
+  creditHours     Float       @map("credit_hours")
   programId       String      @map("program_id") @db.Uuid
   semesterNumber  Int         @map("semester_number")
   type            SubjectType @default(CORE)
@@ -316,6 +325,7 @@ model AcademicYear {
 
   semesters          Semester[]
   subjectInstructors SubjectInstructor[]
+  classes            AcademicClass[]
   feeStructures      FeeStructure[]
 
   @@map("academic_years")
@@ -343,6 +353,42 @@ model Semester {
 }
 
 // ===========================
+// CLASSES (COHORTS)
+// ===========================
+
+model AcademicClass {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  programId      String   @map("program_id") @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  yearLevel      Int      @map("year_level")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  program        Program      @relation(fields: [programId], references: [id])
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  students       ClassStudent[]
+  enrollments    Enrollment[]
+
+  @@unique([programId, academicYearId, yearLevel])
+  @@map("classes")
+}
+
+model ClassStudent {
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  classId    String             @map("class_id") @db.Uuid
+  studentId  String             @map("student_id") @db.Uuid
+  status     ClassStudentStatus @default(ACTIVE)
+  enrolledAt DateTime           @default(now()) @map("enrolled_at")
+
+  class      AcademicClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student    Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, studentId])
+  @@map("class_students")
+}
+
+// ===========================
 // ENROLLMENT
 // ===========================
 
@@ -350,6 +396,7 @@ model Enrollment {
   id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   studentId        String           @map("student_id") @db.Uuid
   semesterId       String           @map("semester_id") @db.Uuid
+  classId          String?          @map("class_id") @db.Uuid
   status           EnrollmentStatus @default(PENDING)
   registrationDate DateTime         @default(now()) @map("registration_date")
   approvedBy       String?          @map("approved_by") @db.Uuid
@@ -360,6 +407,7 @@ model Enrollment {
 
   student          Student          @relation(fields: [studentId], references: [id])
   semester         Semester         @relation(fields: [semesterId], references: [id])
+  class            AcademicClass?   @relation(fields: [classId], references: [id])
   approver         User?            @relation("EnrollmentApprover", fields: [approvedBy], references: [id])
   courseEnrollments CourseEnrollment[]
 

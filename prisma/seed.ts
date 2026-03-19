@@ -7,6 +7,33 @@ async function main() {
   console.log("🌱 Seeding database...");
 
   // ===========================
+  // 0. Clear existing subjects & programs
+  // ===========================
+  // Delete course-related data first to avoid FK constraints
+  await prisma.grade.deleteMany({});
+  await prisma.attendance.deleteMany({});
+  await prisma.courseEnrollment.deleteMany({});
+  await prisma.examSchedule.deleteMany({});
+  await prisma.timetableEntry.deleteMany({});
+  await prisma.subject.deleteMany({});
+  // Delete programs that have no students and are NOT Nursing or Midwifery
+  await prisma.program.deleteMany({
+    where: {
+      code: { notIn: ["DIP-NUR", "DIP-MID"] },
+      students: { none: {} },
+    },
+  });
+  // Delete unused departments
+  await prisma.department.deleteMany({
+    where: {
+      name: { notIn: ["Nursing", "Midwifery", "Administration"] },
+      programs: { none: {} },
+      staff: { none: {} },
+    },
+  });
+  console.log("✅ Cleared existing subjects and unused programs/departments");
+
+  // ===========================
   // 1. Departments
   // ===========================
   const departments = await Promise.all([
@@ -21,26 +48,6 @@ async function main() {
       create: { name: "Midwifery", code: "MID" },
     }),
     prisma.department.upsert({
-      where: { name: "Clinical Medicine" },
-      update: {},
-      create: { name: "Clinical Medicine", code: "CLM" },
-    }),
-    prisma.department.upsert({
-      where: { name: "Public Health" },
-      update: {},
-      create: { name: "Public Health", code: "PBH" },
-    }),
-    prisma.department.upsert({
-      where: { name: "Pharmacy" },
-      update: {},
-      create: { name: "Pharmacy", code: "PHR" },
-    }),
-    prisma.department.upsert({
-      where: { name: "Laboratory Technology" },
-      update: {},
-      create: { name: "Laboratory Technology", code: "LAB" },
-    }),
-    prisma.department.upsert({
       where: { name: "Administration" },
       update: {},
       create: { name: "Administration", code: "ADM" },
@@ -49,14 +56,7 @@ async function main() {
 
   console.log(`✅ Created ${departments.length} departments`);
 
-  const [
-    nursing,
-    midwifery,
-    clinicalMedicine,
-    publicHealth,
-    pharmacy,
-    labTech,
-  ] = departments;
+  const [nursing, midwifery] = departments;
 
   // ===========================
   // 2. Programs
@@ -64,401 +64,562 @@ async function main() {
   const programs = await Promise.all([
     prisma.program.upsert({
       where: { code: "DIP-NUR" },
-      update: {},
+      update: {
+        name: "Diploma in Nursing",
+        durationSemesters: 6,
+        totalCredits: 334,
+        departmentId: nursing.id,
+        description:
+          "A comprehensive 3-year diploma program training professional nurses for healthcare delivery in South Sudan.",
+        entryRequirements:
+          "South Sudan Certificate of Secondary Education (SSCSE) or equivalent with credits in Biology, Chemistry, English, and Mathematics.",
+      },
       create: {
         name: "Diploma in Nursing",
         code: "DIP-NUR",
         durationSemesters: 6,
-        totalCredits: 120,
+        totalCredits: 334,
         departmentId: nursing.id,
         description:
-          "A comprehensive diploma program training professional nurses for healthcare delivery in South Sudan.",
+          "A comprehensive 3-year diploma program training professional nurses for healthcare delivery in South Sudan.",
         entryRequirements:
           "South Sudan Certificate of Secondary Education (SSCSE) or equivalent with credits in Biology, Chemistry, English, and Mathematics.",
       },
     }),
     prisma.program.upsert({
-      where: { code: "CERT-MID" },
-      update: {},
-      create: {
-        name: "Certificate in Midwifery",
-        code: "CERT-MID",
-        durationSemesters: 4,
-        totalCredits: 80,
+      where: { code: "DIP-MID" },
+      update: {
+        name: "Diploma in Midwifery",
+        durationSemesters: 6,
+        totalCredits: 308,
         departmentId: midwifery.id,
         description:
-          "A certificate program training skilled midwives for maternal and child health services.",
+          "A 3-year diploma program training skilled midwives for maternal and child health services in South Sudan.",
         entryRequirements:
-          "SSCSE or equivalent with credits in Biology and English. Registered Nurse certificate preferred.",
+          "SSCSE or equivalent with credits in Biology, Chemistry, English, and Mathematics.",
       },
-    }),
-    prisma.program.upsert({
-      where: { code: "DIP-CLM" },
-      update: {},
       create: {
-        name: "Diploma in Clinical Medicine",
-        code: "DIP-CLM",
+        name: "Diploma in Midwifery",
+        code: "DIP-MID",
         durationSemesters: 6,
-        totalCredits: 130,
-        departmentId: clinicalMedicine.id,
+        totalCredits: 308,
+        departmentId: midwifery.id,
         description:
-          "A diploma program training clinical officers for primary healthcare delivery.",
+          "A 3-year diploma program training skilled midwives for maternal and child health services in South Sudan.",
         entryRequirements:
-          "SSCSE or equivalent with credits in Biology, Chemistry, Physics, English, and Mathematics.",
-      },
-    }),
-    prisma.program.upsert({
-      where: { code: "DIP-PBH" },
-      update: {},
-      create: {
-        name: "Diploma in Public Health",
-        code: "DIP-PBH",
-        durationSemesters: 6,
-        totalCredits: 110,
-        departmentId: publicHealth.id,
-        description:
-          "A diploma program training public health professionals for community health management.",
-        entryRequirements:
-          "SSCSE or equivalent with credits in Biology, English, and Mathematics.",
-      },
-    }),
-    prisma.program.upsert({
-      where: { code: "CERT-PHR" },
-      update: {},
-      create: {
-        name: "Certificate in Pharmacy",
-        code: "CERT-PHR",
-        durationSemesters: 4,
-        totalCredits: 85,
-        departmentId: pharmacy.id,
-        description:
-          "A certificate program training pharmacy technicians for pharmaceutical services.",
-        entryRequirements:
-          "SSCSE or equivalent with credits in Chemistry, Biology, English, and Mathematics.",
-      },
-    }),
-    prisma.program.upsert({
-      where: { code: "CERT-LAB" },
-      update: {},
-      create: {
-        name: "Certificate in Laboratory Technology",
-        code: "CERT-LAB",
-        durationSemesters: 4,
-        totalCredits: 85,
-        departmentId: labTech.id,
-        description:
-          "A certificate program training medical laboratory technicians for diagnostic services.",
-        entryRequirements:
-          "SSCSE or equivalent with credits in Biology, Chemistry, Physics, and Mathematics.",
+          "SSCSE or equivalent with credits in Biology, Chemistry, English, and Mathematics.",
       },
     }),
   ]);
 
   console.log(`✅ Created ${programs.length} programs`);
 
+  const [nursingProgram, midwiferyProgram] = programs;
+
   // ===========================
-  // 3. Subjects (5+ per program)
+  // 3. Subjects
   // ===========================
-  const subjectsData = [
-    // Nursing - Semester 1
+
+  // -------------------------------------------------------
+  // NURSING SUBJECTS (from National Curriculum 2024)
+  // -------------------------------------------------------
+  const nursingSubjects = [
+    // Year 1, Semester 1 (semesterNumber: 1)
     {
-      name: "Anatomy & Physiology I",
-      code: "NUR-101",
-      creditHours: 4,
-      programId: programs[0].id,
+      name: "Communication Skills – English",
+      code: "COM 111",
+      creditHours: 3.6,
       semesterNumber: 1,
     },
     {
-      name: "Fundamentals of Nursing",
-      code: "NUR-102",
-      creditHours: 4,
-      programId: programs[0].id,
-      semesterNumber: 1,
-    },
-    {
-      name: "Medical Biochemistry",
-      code: "NUR-103",
-      creditHours: 3,
-      programId: programs[0].id,
-      semesterNumber: 1,
-    },
-    {
-      name: "Microbiology",
-      code: "NUR-104",
-      creditHours: 3,
-      programId: programs[0].id,
-      semesterNumber: 1,
-    },
-    {
-      name: "English for Health Professionals",
-      code: "NUR-105",
+      name: "Communication Skills and Study",
+      code: "COM 112",
       creditHours: 2,
-      programId: programs[0].id,
       semesterNumber: 1,
     },
-    // Nursing - Semester 2
     {
-      name: "Anatomy & Physiology II",
-      code: "NUR-201",
-      creditHours: 4,
-      programId: programs[0].id,
+      name: "Introduction to Information and Communication Technology (ICT)",
+      code: "COM 113",
+      creditHours: 3,
+      semesterNumber: 1,
+    },
+    {
+      name: "Fundamentals of Nursing (1)",
+      code: "GNP 111",
+      creditHours: 11.3,
+      semesterNumber: 1,
+    },
+    {
+      name: "Basic Life Saving Skills",
+      code: "GNP 112",
+      creditHours: 1.5,
+      semesterNumber: 1,
+    },
+    {
+      name: "Anatomy and Physiology (1)",
+      code: "APH 111",
+      creditHours: 15.3,
+      semesterNumber: 1,
+    },
+    {
+      name: "Behavioral Sciences I – Sociology and Anthropology",
+      code: "SOC 111",
+      creditHours: 3.6,
+      semesterNumber: 1,
+    },
+    {
+      name: "Behavioral Sciences I – Sociology and Anthropology (cont.)",
+      code: "SOC 112",
+      creditHours: 5,
+      semesterNumber: 1,
+    },
+    {
+      name: "Behavioral Sciences II – Psychology",
+      code: "PSY 111",
+      creditHours: 3,
+      semesterNumber: 1,
+    },
+    {
+      name: "Introduction to Ethics and Law in Nursing",
+      code: "GNP 113",
+      creditHours: 3,
+      semesterNumber: 1,
+    },
+    {
+      name: "Microbiology and Parasitology",
+      code: "MIP 111",
+      creditHours: 3,
+      semesterNumber: 1,
+    },
+    {
+      name: "Community Health Nursing (1)",
+      code: "GNP 114",
+      creditHours: 8.6,
+      semesterNumber: 1,
+    },
+
+    // Year 1, Semester 2 (semesterNumber: 2)
+    {
+      name: "Biochemistry",
+      code: "BIP 121",
+      creditHours: 3.5,
       semesterNumber: 2,
     },
     {
-      name: "Medical-Surgical Nursing I",
-      code: "NUR-202",
+      name: "Fundamentals of Nursing (2)",
+      code: "GNP 121",
+      creditHours: 12.6,
+      semesterNumber: 2,
+    },
+    {
+      name: "Anatomy and Physiology (2)",
+      code: "APH 121",
+      creditHours: 10,
+      semesterNumber: 2,
+    },
+    {
+      name: "Behavioural Science II",
+      code: "SOC 121",
+      creditHours: 1,
+      semesterNumber: 2,
+    },
+    {
+      name: "Medical and Surgical Nursing (1)",
+      code: "GNP 122",
+      creditHours: 10,
+      semesterNumber: 2,
+    },
+    {
+      name: "Pharmacology (1)",
+      code: "PHA 121",
+      creditHours: 6.3,
+      semesterNumber: 2,
+    },
+    {
+      name: "Pediatric Nursing (1)",
+      code: "GNP 123",
+      creditHours: 12,
+      semesterNumber: 2,
+    },
+    {
+      name: "Community Health Nursing (2)",
+      code: "GNP 124",
+      creditHours: 4.3,
+      semesterNumber: 2,
+    },
+    {
+      name: "Nutrition and Dietetics",
+      code: "NUD 121",
+      creditHours: 4.6,
+      semesterNumber: 2,
+    },
+
+    // Year 2, Semester 1 (semesterNumber: 3)
+    {
+      name: "Fundamentals of Nursing (3)",
+      code: "GNP 211",
+      creditHours: 10,
+      semesterNumber: 3,
+    },
+    {
+      name: "Medical Surgical Nursing (2)",
+      code: "GNP 212",
+      creditHours: 9.3,
+      semesterNumber: 3,
+    },
+    {
+      name: "Pharmacology (2)",
+      code: "PHA 211",
+      creditHours: 6.3,
+      semesterNumber: 3,
+    },
+    {
+      name: "Pediatrics Nursing (2) incl. IMCI",
+      code: "GNP 213",
+      creditHours: 8.3,
+      semesterNumber: 3,
+    },
+    {
+      name: "Obstetrics (1)",
+      code: "GNP 214",
+      creditHours: 10,
+      semesterNumber: 3,
+    },
+    {
+      name: "Family Planning",
+      code: "GNP 215",
+      creditHours: 5.6,
+      semesterNumber: 3,
+    },
+    {
+      name: "Mental Health and Psychiatric Nursing",
+      code: "GNP 216",
+      creditHours: 7.6,
+      semesterNumber: 3,
+    },
+
+    // Year 2, Semester 2 (semesterNumber: 4)
+    {
+      name: "Medical Surgical Nursing (3)",
+      code: "GNP 221",
+      creditHours: 18.6,
+      semesterNumber: 4,
+    },
+    {
+      name: "Community Health Nursing (3)",
+      code: "GNP 222",
+      creditHours: 12.6,
+      semesterNumber: 4,
+    },
+    {
+      name: "Gynecology Nursing",
+      code: "GNP 223",
+      creditHours: 12.3,
+      semesterNumber: 4,
+    },
+    {
+      name: "Seminar in Clinical Practice",
+      code: "GNP 224",
+      creditHours: 2.3,
+      semesterNumber: 4,
+    },
+    {
+      name: "Pediatrics Nursing (3)",
+      code: "GNP 225",
+      creditHours: 6.3,
+      semesterNumber: 4,
+    },
+    {
+      name: "Introduction to Research",
+      code: "GNP 226",
+      creditHours: 3.3,
+      semesterNumber: 4,
+    },
+
+    // Year 3, Semester 1 (semesterNumber: 5)
+    {
+      name: "Medical Surgical Nursing (4)",
+      code: "GNP 311",
+      creditHours: 20.3,
+      semesterNumber: 5,
+    },
+    {
+      name: "Principles of Management and Leadership",
+      code: "GNP 312",
+      creditHours: 8,
+      semesterNumber: 5,
+    },
+    {
+      name: "Teaching Methodologies",
+      code: "GNP 313",
       creditHours: 4,
-      programId: programs[0].id,
+      semesterNumber: 5,
+    },
+    {
+      name: "Obstetrics (2) and Neonatal Emergency",
+      code: "GNP 314",
+      creditHours: 16.3,
+      semesterNumber: 5,
+    },
+    {
+      name: "Research Project I",
+      code: "RES 311",
+      creditHours: 4.6,
+      semesterNumber: 5,
+    },
+
+    // Year 3, Semester 2 (semesterNumber: 6)
+    {
+      name: "Sexual and Reproductive Health & Rights",
+      code: "GNP 321",
+      creditHours: 15,
+      semesterNumber: 6,
+    },
+    {
+      name: "Gerontology / Geriatric Nursing",
+      code: "GNP 323",
+      creditHours: 2,
+      semesterNumber: 6,
+    },
+    {
+      name: "Nursing Response in Crisis Settings",
+      code: "GNP 322",
+      creditHours: 18.3,
+      semesterNumber: 6,
+    },
+    {
+      name: "Entrepreneurship",
+      code: "ENP 322",
+      creditHours: 5.5,
+      semesterNumber: 6,
+    },
+    {
+      name: "Research Project II",
+      code: "RES 321",
+      creditHours: 8.6,
+      semesterNumber: 6,
+    },
+  ];
+
+  // -------------------------------------------------------
+  // MIDWIFERY SUBJECTS (from National Curriculum - Revised 2016)
+  // -------------------------------------------------------
+  const midwiferySubjects = [
+    // Year 1, Semester 1 (semesterNumber: 1)
+    {
+      name: "Communication and Study Skills",
+      code: "GS 111",
+      creditHours: 5.3,
+      semesterNumber: 1,
+    },
+    {
+      name: "Introduction to Information Communication Technology",
+      code: "BMS 111",
+      creditHours: 2.6,
+      semesterNumber: 1,
+    },
+    {
+      name: "Anatomy and Physiology I",
+      code: "BMS 112",
+      creditHours: 13.6,
+      semesterNumber: 1,
+    },
+    {
+      name: "Basic Life Saving Skills",
+      code: "BMS 113",
+      creditHours: 3.3,
+      semesterNumber: 1,
+    },
+    {
+      name: "Foundations in Midwifery Practice",
+      code: "PMS 111",
+      creditHours: 14,
+      semesterNumber: 1,
+    },
+    { name: "Psychology", code: "GS 112", creditHours: 5.3, semesterNumber: 1 },
+    { name: "Sociology", code: "GS 113", creditHours: 3.3, semesterNumber: 1 },
+    {
+      name: "Microbiology",
+      code: "GS 114",
+      creditHours: 5.6,
+      semesterNumber: 1,
+    },
+
+    // Year 1, Semester 2 (semesterNumber: 2)
+    {
+      name: "Anatomy, Physiology (II) and Embryology for Midwives",
+      code: "BMS 121",
+      creditHours: 12.6,
+      semesterNumber: 2,
+    },
+    {
+      name: "Nutrition in Midwifery",
+      code: "PMS 121",
+      creditHours: 6.6,
+      semesterNumber: 2,
+    },
+    {
+      name: "Midwifery Care I – Normal Pregnancy incl. PMTCT",
+      code: "PMS 122",
+      creditHours: 14.6,
       semesterNumber: 2,
     },
     {
       name: "Pharmacology I",
-      code: "NUR-203",
-      creditHours: 3,
-      programId: programs[0].id,
+      code: "BMS 122",
+      creditHours: 10,
+      semesterNumber: 2,
+    },
+    {
+      name: "Primary Health Care",
+      code: "BMS 123",
+      creditHours: 10.6,
       semesterNumber: 2,
     },
 
-    // Midwifery - Semester 1
+    // Year 2, Semester 1 (semesterNumber: 3)
     {
-      name: "Anatomy & Physiology",
-      code: "MID-101",
+      name: "Midwifery Care II – Normal Labour",
+      code: "PMS 211",
+      creditHours: 16.6,
+      semesterNumber: 3,
+    },
+    {
+      name: "Midwifery Care III – Normal Postpartum and Newborn Care",
+      code: "PMS 212",
+      creditHours: 13.3,
+      semesterNumber: 3,
+    },
+    {
+      name: "Pharmacology II",
+      code: "BMS 211",
       creditHours: 4,
-      programId: programs[1].id,
-      semesterNumber: 1,
+      semesterNumber: 3,
     },
     {
-      name: "Fundamentals of Midwifery",
-      code: "MID-102",
+      name: "Epidemiology",
+      code: "BMS 212",
       creditHours: 4,
-      programId: programs[1].id,
-      semesterNumber: 1,
+      semesterNumber: 3,
     },
     {
-      name: "Reproductive Health",
-      code: "MID-103",
-      creditHours: 3,
-      programId: programs[1].id,
-      semesterNumber: 1,
-    },
-    {
-      name: "Nutrition & Dietetics",
-      code: "MID-104",
+      name: "Communicable Diseases",
+      code: "BMS 213",
       creditHours: 2,
-      programId: programs[1].id,
-      semesterNumber: 1,
+      semesterNumber: 3,
     },
     {
-      name: "Communication Skills",
-      code: "MID-105",
-      creditHours: 2,
-      programId: programs[1].id,
-      semesterNumber: 1,
-    },
-    // Midwifery - Semester 2
-    {
-      name: "Antenatal Care",
-      code: "MID-201",
-      creditHours: 4,
-      programId: programs[1].id,
-      semesterNumber: 2,
-    },
-    {
-      name: "Labour & Delivery Management",
-      code: "MID-202",
-      creditHours: 4,
-      programId: programs[1].id,
-      semesterNumber: 2,
+      name: "Family Planning",
+      code: "PMS 213",
+      creditHours: 11.3,
+      semesterNumber: 3,
     },
 
-    // Clinical Medicine - Semester 1
+    // Year 2, Semester 2 (semesterNumber: 4)
     {
-      name: "Human Anatomy",
-      code: "CLM-101",
-      creditHours: 4,
-      programId: programs[2].id,
-      semesterNumber: 1,
+      name: "Sexual and Reproductive Health and Rights",
+      code: "PMS 221",
+      creditHours: 11.3,
+      semesterNumber: 4,
     },
     {
-      name: "Human Physiology",
-      code: "CLM-102",
-      creditHours: 4,
-      programId: programs[2].id,
-      semesterNumber: 1,
+      name: "Midwifery Care IV – Complications in Pregnancy",
+      code: "PMS 222",
+      creditHours: 18.6,
+      semesterNumber: 4,
     },
     {
-      name: "Biochemistry",
-      code: "CLM-103",
-      creditHours: 3,
-      programId: programs[2].id,
-      semesterNumber: 1,
+      name: "Child Health (Under 5)",
+      code: "BMS 221",
+      creditHours: 12.6,
+      semesterNumber: 4,
     },
     {
-      name: "Clinical Pathology",
-      code: "CLM-104",
-      creditHours: 3,
-      programId: programs[2].id,
-      semesterNumber: 1,
+      name: "Introduction to Research",
+      code: "GS 221",
+      creditHours: 5.3,
+      semesterNumber: 4,
+    },
+    { name: "Seminar", code: "PMS 223", creditHours: 3.3, semesterNumber: 4 },
+
+    // Year 3, Semester 1 (semesterNumber: 5)
+    {
+      name: "Midwifery in Community I (incl. Boma Health Initiative)",
+      code: "PMS 311",
+      creditHours: 12,
+      semesterNumber: 5,
     },
     {
-      name: "Introduction to Clinical Medicine",
-      code: "CLM-105",
-      creditHours: 3,
-      programId: programs[2].id,
-      semesterNumber: 1,
-    },
-    // Clinical Medicine - Semester 2
-    {
-      name: "Internal Medicine I",
-      code: "CLM-201",
-      creditHours: 4,
-      programId: programs[2].id,
-      semesterNumber: 2,
+      name: "Midwifery Care V – Complications in Labour, Delivery and Puerperium",
+      code: "PMS 312",
+      creditHours: 18,
+      semesterNumber: 5,
     },
     {
-      name: "Surgery I",
-      code: "CLM-202",
-      creditHours: 4,
-      programId: programs[2].id,
-      semesterNumber: 2,
+      name: "Complications in the Neonate",
+      code: "PMS 313",
+      creditHours: 6.6,
+      semesterNumber: 5,
+    },
+    {
+      name: "Gynecology",
+      code: "PMS 314",
+      creditHours: 9.3,
+      semesterNumber: 5,
+    },
+    {
+      name: "Research Project I",
+      code: "PMS 315",
+      creditHours: 5.3,
+      semesterNumber: 5,
     },
 
-    // Public Health - Semester 1
+    // Year 3, Semester 2 (semesterNumber: 6)
     {
-      name: "Introduction to Public Health",
-      code: "PBH-101",
-      creditHours: 3,
-      programId: programs[3].id,
-      semesterNumber: 1,
+      name: "Sexual and Reproductive Health and Rights incl. CMR",
+      code: "PMS 321",
+      creditHours: 17.3,
+      semesterNumber: 6,
     },
     {
-      name: "Epidemiology I",
-      code: "PBH-102",
-      creditHours: 3,
-      programId: programs[3].id,
-      semesterNumber: 1,
+      name: "Midwifery in Community II incl. MISP",
+      code: "PMS 322",
+      creditHours: 12.6,
+      semesterNumber: 6,
     },
     {
-      name: "Biostatistics",
-      code: "PBH-103",
-      creditHours: 3,
-      programId: programs[3].id,
-      semesterNumber: 1,
+      name: "Principles of Management and Leadership",
+      code: "GS 311",
+      creditHours: 5.3,
+      semesterNumber: 6,
     },
     {
-      name: "Environmental Health",
-      code: "PBH-104",
-      creditHours: 3,
-      programId: programs[3].id,
-      semesterNumber: 1,
+      name: "Teaching Methodologies",
+      code: "GS 312",
+      creditHours: 3.3,
+      semesterNumber: 6,
     },
     {
-      name: "Health Education & Promotion",
-      code: "PBH-105",
-      creditHours: 3,
-      programId: programs[3].id,
-      semesterNumber: 1,
-    },
-    // Public Health - Semester 2
-    {
-      name: "Epidemiology II",
-      code: "PBH-201",
-      creditHours: 3,
-      programId: programs[3].id,
-      semesterNumber: 2,
-    },
-    {
-      name: "Community Health Nursing",
-      code: "PBH-202",
-      creditHours: 3,
-      programId: programs[3].id,
-      semesterNumber: 2,
-    },
-
-    // Pharmacy - Semester 1
-    {
-      name: "Pharmaceutical Chemistry",
-      code: "PHR-101",
-      creditHours: 4,
-      programId: programs[4].id,
-      semesterNumber: 1,
-    },
-    {
-      name: "Pharmacognosy",
-      code: "PHR-102",
-      creditHours: 3,
-      programId: programs[4].id,
-      semesterNumber: 1,
-    },
-    {
-      name: "Pharmacy Practice",
-      code: "PHR-103",
-      creditHours: 3,
-      programId: programs[4].id,
-      semesterNumber: 1,
-    },
-    {
-      name: "Dispensing & Compounding",
-      code: "PHR-104",
-      creditHours: 3,
-      programId: programs[4].id,
-      semesterNumber: 1,
-    },
-    {
-      name: "Pharmaceutical Calculations",
-      code: "PHR-105",
-      creditHours: 2,
-      programId: programs[4].id,
-      semesterNumber: 1,
-    },
-
-    // Lab Technology - Semester 1
-    {
-      name: "Introduction to Laboratory Science",
-      code: "LAB-101",
-      creditHours: 3,
-      programId: programs[5].id,
-      semesterNumber: 1,
-    },
-    {
-      name: "Clinical Chemistry",
-      code: "LAB-102",
-      creditHours: 4,
-      programId: programs[5].id,
-      semesterNumber: 1,
-    },
-    {
-      name: "Haematology",
-      code: "LAB-103",
-      creditHours: 4,
-      programId: programs[5].id,
-      semesterNumber: 1,
-    },
-    {
-      name: "Medical Microbiology",
-      code: "LAB-104",
-      creditHours: 3,
-      programId: programs[5].id,
-      semesterNumber: 1,
-    },
-    {
-      name: "Parasitology",
-      code: "LAB-105",
-      creditHours: 3,
-      programId: programs[5].id,
-      semesterNumber: 1,
+      name: "Research Project II",
+      code: "PMS 324",
+      creditHours: 8.6,
+      semesterNumber: 6,
     },
   ];
 
-  for (const subject of subjectsData) {
-    await prisma.subject.upsert({
-      where: { code: subject.code },
-      update: {},
-      create: subject,
-    });
-  }
+  const allSubjects = [
+    ...nursingSubjects.map((s) => ({ ...s, programId: nursingProgram.id })),
+    ...midwiferySubjects.map((s) => ({ ...s, programId: midwiferyProgram.id })),
+  ];
 
-  console.log(`✅ Created ${subjectsData.length} subjects`);
+  await prisma.subject.createMany({
+    data: allSubjects,
+    skipDuplicates: true,
+  });
+
+  console.log(
+    `✅ Created ${allSubjects.length} subjects (${nursingSubjects.length} Nursing, ${midwiferySubjects.length} Midwifery)`,
+  );
 
   // ===========================
   // 4. Academic Year & Semesters

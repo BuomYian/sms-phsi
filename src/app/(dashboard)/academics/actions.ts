@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { logAction } from "@/lib/audit";
+import { SubjectType } from "@prisma/client";
 import {
   createProgramSchema,
   createSubjectSchema,
@@ -177,6 +178,11 @@ export async function updateSubjectAction(
   if (!session) return { error: "Unauthorized" };
 
   const raw = Object.fromEntries(formData.entries());
+  const typeValue =
+    typeof raw.type === "string" &&
+    (Object.values(SubjectType) as string[]).includes(raw.type)
+      ? (raw.type as SubjectType)
+      : undefined;
 
   try {
     const subject = await db.subject.findUnique({ where: { id } });
@@ -191,7 +197,7 @@ export async function updateSubjectAction(
         semesterNumber: raw.semesterNumber
           ? Number(raw.semesterNumber)
           : undefined,
-        type: (raw.type as string) || undefined,
+        type: typeValue,
         description: (raw.description as string) || null,
       },
     });
@@ -567,5 +573,96 @@ export async function deleteSemesterAction(
   } catch (error) {
     console.error("Delete semester error:", error);
     return { error: "Failed to delete semester." };
+  }
+}
+
+// --------------- Subject Instructor Assignment ---------------
+export async function assignInstructorAction(
+  subjectId: string,
+  staffId: string,
+  academicYearId: string,
+  semesterId: string,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session || !["SUPER_ADMIN", "ADMIN"].includes(session.role)) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const existing = await db.subjectInstructor.findFirst({
+      where: { subjectId, staffId, semesterId },
+    });
+    if (existing) {
+      return {
+        error:
+          "This instructor is already assigned to this subject for this semester.",
+      };
+    }
+
+    await db.subjectInstructor.create({
+      data: { subjectId, staffId, academicYearId, semesterId },
+    });
+
+    const [subject, staff] = await Promise.all([
+      db.subject.findUnique({
+        where: { id: subjectId },
+        select: { name: true, code: true },
+      }),
+      db.staff.findUnique({
+        where: { id: staffId },
+        include: { user: { select: { fullName: true } } },
+      }),
+    ]);
+
+    await logAction(session.id, "CREATE", "SubjectInstructor", subjectId, {
+      subject: subject?.code,
+      instructor: staff?.user.fullName,
+    });
+
+    revalidatePath(`/academics/subjects/${subjectId}`);
+    return {
+      success: true,
+      message: `Instructor "${staff?.user.fullName}" assigned to "${subject?.name}".`,
+    };
+  } catch (error) {
+    console.error("Assign instructor error:", error);
+    return { error: "Failed to assign instructor." };
+  }
+}
+
+export async function unassignInstructorAction(
+  assignmentId: string,
+  subjectId: string,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session || !["SUPER_ADMIN", "ADMIN"].includes(session.role)) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const assignment = await db.subjectInstructor.findUnique({
+      where: { id: assignmentId },
+      include: {
+        staff: { include: { user: { select: { fullName: true } } } },
+        subject: { select: { name: true, code: true } },
+      },
+    });
+    if (!assignment) return { error: "Assignment not found." };
+
+    await db.subjectInstructor.delete({ where: { id: assignmentId } });
+
+    await logAction(session.id, "DELETE", "SubjectInstructor", assignmentId, {
+      subject: assignment.subject.code,
+      instructor: assignment.staff.user.fullName,
+    });
+
+    revalidatePath(`/academics/subjects/${subjectId}`);
+    return {
+      success: true,
+      message: `Instructor "${assignment.staff.user.fullName}" removed from "${assignment.subject.name}".`,
+    };
+  } catch (error) {
+    console.error("Unassign instructor error:", error);
+    return { error: "Failed to unassign instructor." };
   }
 }

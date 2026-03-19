@@ -7,6 +7,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { createStaffSchema } from "@/lib/validators";
 import { revalidatePath } from "next/cache";
 import { generateStaffId } from "@/lib/utils";
+import { EmploymentType, Gender, Role } from "@prisma/client";
 
 export type StaffActionState = {
   error?: string;
@@ -115,6 +116,21 @@ export async function updateStaffAction(
   if (!session) return { error: "Unauthorized" };
 
   const raw = Object.fromEntries(formData.entries());
+  const employmentTypeValue =
+    typeof raw.employmentType === "string" &&
+    (Object.values(EmploymentType) as string[]).includes(raw.employmentType)
+      ? (raw.employmentType as EmploymentType)
+      : undefined;
+  const genderValue =
+    typeof raw.gender === "string" &&
+    (Object.values(Gender) as string[]).includes(raw.gender)
+      ? (raw.gender as Gender)
+      : undefined;
+  const roleValue =
+    typeof raw.role === "string" &&
+    (Object.values(Role) as string[]).includes(raw.role)
+      ? (raw.role as Role)
+      : undefined;
 
   try {
     const result = await db.$transaction(async (tx) => {
@@ -129,10 +145,10 @@ export async function updateStaffAction(
         data: {
           departmentId: (raw.departmentId as string) || undefined,
           designation: (raw.designation as string) || undefined,
-          employmentType: (raw.employmentType as string) || undefined,
+          employmentType: employmentTypeValue,
           salary: raw.salary ? parseFloat(raw.salary as string) : undefined,
           qualifications: (raw.qualifications as string) || undefined,
-          gender: (raw.gender as string) || undefined,
+          gender: genderValue,
           dob: raw.dob ? new Date(raw.dob as string) : undefined,
           nationality: (raw.nationality as string) || undefined,
           nationalId: (raw.nationalId as string) || undefined,
@@ -142,14 +158,13 @@ export async function updateStaffAction(
 
       const fullName = raw.fullName as string | undefined;
       const phone = raw.phone as string | undefined;
-      const role = raw.role as string | undefined;
-      if (fullName || phone || role) {
+      if (fullName || phone || roleValue) {
         await tx.user.update({
           where: { id: staff.userId },
           data: {
             ...(fullName ? { fullName } : {}),
             ...(phone ? { phone } : {}),
-            ...(role ? { role } : {}),
+            ...(roleValue ? { role: roleValue } : {}),
           },
         });
       }

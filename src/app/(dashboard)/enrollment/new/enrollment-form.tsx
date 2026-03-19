@@ -203,7 +203,7 @@ export default function EnrollmentForm({
                       value={selectedStudentId}
                     />
                     <Select
-                      value={selectedStudentId}
+                      defaultValue={selectedStudentId || undefined}
                       onValueChange={handleStudentChange}
                     >
                       <SelectTrigger>
@@ -230,7 +230,7 @@ export default function EnrollmentForm({
                   value={selectedSemesterId}
                 />
                 <Select
-                  value={selectedSemesterId}
+                  defaultValue={selectedSemesterId || undefined}
                   onValueChange={setSelectedSemesterId}
                 >
                   <SelectTrigger>

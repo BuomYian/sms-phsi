@@ -25,7 +25,6 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
   "/staff": ["SUPER_ADMIN", "ADMIN"],
   "/parents": ["SUPER_ADMIN", "ADMIN"],
   "/academics": ["SUPER_ADMIN", "ADMIN", "INSTRUCTOR"],
-  "/enrollment": ["SUPER_ADMIN", "ADMIN", "STUDENT"],
   "/timetable": ["SUPER_ADMIN", "ADMIN", "INSTRUCTOR", "STUDENT"],
   "/attendance": ["SUPER_ADMIN", "ADMIN", "INSTRUCTOR"],
   "/grades": ["SUPER_ADMIN", "ADMIN", "INSTRUCTOR", "STUDENT"],

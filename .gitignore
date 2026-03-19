@@ -13,6 +13,10 @@
 # testing
 /coverage
 
+# TestSprite
+/testsprite_tests/
+/.testsprite/
+
 # next.js
 /.next/
 /out/

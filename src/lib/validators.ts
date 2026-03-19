@@ -141,7 +141,7 @@ export const createProgramSchema = z.object({
 export const createSubjectSchema = z.object({
   name: z.string().min(2, "Subject name is required"),
   code: z.string().min(2, "Subject code is required"),
-  creditHours: z.coerce.number().min(1, "Credit hours must be at least 1"),
+  creditHours: z.coerce.number().min(0.5, "Credit hours must be at least 0.5"),
   programId: z.string().uuid("Please select a program"),
   semesterNumber: z.coerce.number().min(1, "Semester number is required"),
   type: z.enum(["CORE", "ELECTIVE"]).default("CORE"),

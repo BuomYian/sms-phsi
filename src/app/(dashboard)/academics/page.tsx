@@ -2,17 +2,24 @@ import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Library, Building2, CalendarDays } from "lucide-react";
+import {
+  BookOpen,
+  Library,
+  Building2,
+  CalendarDays,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "Academics" };
 
 export default async function AcademicsPage() {
-  const [programCount, subjectCount, departmentCount, currentAY] =
+  const [programCount, subjectCount, departmentCount, classCount, currentAY] =
     await Promise.all([
       db.program.count({ where: { isActive: true } }),
       db.subject.count(),
       db.department.count(),
+      db.academicClass.count(),
       db.academicYear.findFirst({ where: { isCurrent: true } }),
     ]);
 
@@ -37,6 +44,13 @@ export default async function AcademicsPage() {
       description: "Manage academic departments",
       icon: Building2,
       href: "/academics/departments",
+    },
+    {
+      title: "Classes",
+      count: classCount,
+      description: "Manage year-level class cohorts",
+      icon: Users,
+      href: "/academics/classes",
     },
     {
       title: "Academic Calendar",

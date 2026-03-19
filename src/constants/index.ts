@@ -178,18 +178,18 @@ export const NAV_ITEMS: NavItem[] = [
         roles: [Role.SUPER_ADMIN, Role.ADMIN],
       },
       {
+        title: "Classes",
+        href: "/academics/classes",
+        icon: "Users",
+        roles: [Role.SUPER_ADMIN, Role.ADMIN],
+      },
+      {
         title: "Academic Calendar",
         href: "/academics/calendar",
         icon: "CalendarDays",
         roles: [Role.SUPER_ADMIN, Role.ADMIN],
       },
     ],
-  },
-  {
-    title: "Enrollment",
-    href: "/enrollment",
-    icon: "ClipboardList",
-    roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.STUDENT],
   },
   {
     title: "Timetable",
