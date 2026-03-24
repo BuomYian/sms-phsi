@@ -15,7 +15,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, Calendar, Users, User } from "lucide-react";
+import {
+  ArrowLeft,
+  Pencil,
+  Trash2,
+  Calendar,
+  Users,
+  User,
+  Eye,
+} from "lucide-react";
 import Link from "next/link";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
 import { deleteAnnouncementAction } from "../actions";
@@ -34,11 +42,13 @@ interface AnnouncementDetailProps {
     program: { name: string } | null;
   };
   isAdmin: boolean;
+  readCount?: number;
 }
 
 export function AnnouncementDetail({
   announcement,
   isAdmin,
+  readCount,
 }: AnnouncementDetailProps) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
@@ -149,6 +159,15 @@ export function AnnouncementDetail({
           </CardContent>
         </Card>
       </div>
+
+      {isAdmin && readCount !== undefined && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Eye className="h-4 w-4" />
+          <span>
+            Read by {readCount} user{readCount !== 1 ? "s" : ""}
+          </span>
+        </div>
+      )}
 
       {/* Body */}
       <Card>

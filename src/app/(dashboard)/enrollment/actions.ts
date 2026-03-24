@@ -43,12 +43,47 @@ export async function createEnrollmentAction(
       // Check total credit hours
       const subjects = await tx.subject.findMany({
         where: { id: { in: subjectIds } },
+        include: {
+          prerequisites: {
+            include: {
+              prerequisite: { select: { id: true, name: true, code: true } },
+            },
+          },
+        },
       });
       const totalCredits = subjects.reduce((sum, s) => sum + s.creditHours, 0);
       if (totalCredits > 24) {
         throw new Error(
           `Total credit hours (${totalCredits}) exceed the maximum of 24.`,
         );
+      }
+
+      // Check prerequisites - student must have passed all prerequisites
+      const passedSubjects = await tx.grade.findMany({
+        where: {
+          courseEnrollment: {
+            enrollment: { studentId, status: "APPROVED" },
+          },
+          status: "APPROVED",
+          gradeLetter: { not: "F" },
+        },
+        select: {
+          courseEnrollment: { select: { subjectId: true } },
+        },
+      });
+
+      const passedSubjectIds = new Set(
+        passedSubjects.map((g) => g.courseEnrollment.subjectId),
+      );
+
+      for (const subject of subjects) {
+        for (const prereq of subject.prerequisites) {
+          if (!passedSubjectIds.has(prereq.prerequisiteId)) {
+            throw new Error(
+              `Prerequisite not met: ${prereq.prerequisite.code} (${prereq.prerequisite.name}) is required for ${subject.code}.`,
+            );
+          }
+        }
       }
 
       return await tx.enrollment.create({

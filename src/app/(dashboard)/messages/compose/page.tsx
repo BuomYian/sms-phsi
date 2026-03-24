@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 import ComposeForm from "./compose-form";
 
 export const metadata = { title: "Compose Message" };
@@ -8,7 +10,12 @@ export default async function ComposePage({
 }: {
   searchParams: Promise<{ replyTo?: string; subject?: string }>;
 }) {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
   const { replyTo, subject } = await searchParams;
+  const isAdmin = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
+
   const users = await db.user.findMany({
     where: { isActive: true },
     select: { id: true, fullName: true, email: true, role: true },
@@ -27,6 +34,7 @@ export default async function ComposePage({
         users={users}
         defaultRecipientId={replyTo}
         defaultSubject={subject}
+        isAdmin={isAdmin}
       />
     </div>
   );

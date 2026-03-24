@@ -21,7 +21,11 @@ export const metadata = { title: "Timetable" };
 export default async function TimetablePage({
   searchParams,
 }: {
-  searchParams: Promise<{ semester?: string; view?: string }>;
+  searchParams: Promise<{
+    semester?: string;
+    view?: string;
+    class?: string;
+  }>;
 }) {
   const [session, params] = await Promise.all([getSession(), searchParams]);
   if (!session) return null;
@@ -32,18 +36,50 @@ export default async function TimetablePage({
 
   // Get semesters for filter
   const semesters = await db.semester.findMany({
-    include: { academicYear: { select: { name: true } } },
+    include: { academicYear: { select: { name: true, id: true } } },
     orderBy: [{ academicYear: { startDate: "desc" } }, { startDate: "asc" }],
   });
 
   // Default to the current semester
   const currentSemester = semesters.find((s) => s.isCurrent);
   const activeSemesterId = params.semester || currentSemester?.id || "";
+  const activeSemester = semesters.find((s) => s.id === activeSemesterId);
+
+  // For admins: fetch classes to filter by
+  let classes: {
+    id: string;
+    name: string;
+    programId: string;
+    yearLevel: number;
+  }[] = [];
+  if (isAdmin && activeSemester) {
+    classes = await db.academicClass.findMany({
+      where: { academicYearId: activeSemester.academicYear.id },
+      select: { id: true, name: true, programId: true, yearLevel: true },
+      orderBy: [{ program: { name: "asc" } }, { yearLevel: "asc" }],
+    });
+  }
+  const activeClassId = params.class || "";
+  const activeClass = classes.find((c) => c.id === activeClassId);
 
   // Build where clause
   const where: Record<string, unknown> = {};
   if (activeSemesterId) {
     where.semesterId = activeSemesterId;
+  }
+
+  // Admin filtering by class: show subjects for that class's program & year level
+  if (isAdmin && activeClass) {
+    const semStart = (activeClass.yearLevel - 1) * 2 + 1;
+    const semEnd = activeClass.yearLevel * 2;
+    const classSubjects = await db.subject.findMany({
+      where: {
+        programId: activeClass.programId,
+        semesterNumber: { gte: semStart, lte: semEnd },
+      },
+      select: { id: true },
+    });
+    where.subjectId = { in: classSubjects.map((s) => s.id) };
   }
 
   // Instructors see only their own entries
@@ -87,7 +123,13 @@ export default async function TimetablePage({
   const entries = await db.timetableEntry.findMany({
     where,
     include: {
-      subject: { select: { name: true, code: true } },
+      subject: {
+        select: {
+          name: true,
+          code: true,
+          program: { select: { name: true, code: true } },
+        },
+      },
       instructor: {
         include: { user: { select: { fullName: true } } },
       },
@@ -108,8 +150,14 @@ export default async function TimetablePage({
   const activeSemesterLabel = activeSemesterId
     ? semesters.find((s) => s.id === activeSemesterId)
     : null;
-  const activeView = params.view || "list";
-  const semesterParam = params.semester ? `&semester=${params.semester}` : "";
+  const activeView = params.view || "grid";
+  const filterParams = [
+    params.semester ? `semester=${params.semester}` : "",
+    params.class ? `class=${params.class}` : "",
+  ]
+    .filter(Boolean)
+    .join("&");
+  const filterQuery = filterParams ? `&${filterParams}` : "";
 
   return (
     <div className="space-y-6">
@@ -181,9 +229,45 @@ export default async function TimetablePage({
         ))}
       </div>
 
+      {/* Class filter (admin only) */}
+      {isAdmin && classes.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <span className="flex items-center text-sm text-muted-foreground mr-2">
+            Class:
+          </span>
+          <Link
+            href={
+              params.semester
+                ? `/timetable?semester=${params.semester}`
+                : "/timetable"
+            }
+          >
+            <Badge
+              variant={!activeClassId ? "default" : "outline"}
+              className="cursor-pointer"
+            >
+              All Classes
+            </Badge>
+          </Link>
+          {classes.map((c) => (
+            <Link
+              key={c.id}
+              href={`/timetable?${params.semester ? `semester=${params.semester}&` : ""}class=${c.id}`}
+            >
+              <Badge
+                variant={activeClassId === c.id ? "default" : "outline"}
+                className="cursor-pointer"
+              >
+                {c.name}
+              </Badge>
+            </Link>
+          ))}
+        </div>
+      )}
+
       {/* View toggle */}
       <div className="flex items-center gap-2">
-        <Link href={`/timetable?view=list${semesterParam}`}>
+        <Link href={`/timetable?view=list${filterQuery}`}>
           <Button
             variant={activeView === "list" ? "default" : "outline"}
             size="sm"
@@ -192,7 +276,7 @@ export default async function TimetablePage({
             List
           </Button>
         </Link>
-        <Link href={`/timetable?view=grid${semesterParam}`}>
+        <Link href={`/timetable?view=grid${filterQuery}`}>
           <Button
             variant={activeView === "grid" ? "default" : "outline"}
             size="sm"
@@ -244,6 +328,10 @@ export default async function TimetablePage({
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {entry.subject.code}
+                                {(isInstructor || isAdmin) &&
+                                  entry.subject.program && (
+                                    <span> · {entry.subject.program.code}</span>
+                                  )}
                               </p>
                             </div>
                           </TableCell>
@@ -279,7 +367,7 @@ export default async function TimetablePage({
           ))}
         </div>
       ) : (
-        <WeeklyGrid entries={entries} />
+        <WeeklyGrid entries={entries} showProgram={isInstructor || isAdmin} />
       )}
     </div>
   );

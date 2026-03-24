@@ -13,7 +13,24 @@ export default async function AnnouncementsPage() {
   const session = await getSession();
   const isAdmin = session?.role === "SUPER_ADMIN" || session?.role === "ADMIN";
   const canCreate = isAdmin || session?.role === "INSTRUCTOR";
+
+  // Build role-based audience filter
+  const audienceFilter = isAdmin
+    ? {} // Admins see all announcements
+    : {
+        targetAudience: {
+          in: [
+            "ALL",
+            ...(session?.role === "STUDENT" ? ["STUDENTS"] : []),
+            ...(session?.role === "INSTRUCTOR" ? ["INSTRUCTORS", "STAFF"] : []),
+            ...(session?.role === "PARENT" ? ["PARENTS"] : []),
+            ...(session?.role === "FINANCE" ? ["STAFF"] : []),
+          ],
+        },
+      };
+
   const announcements = await db.announcement.findMany({
+    where: audienceFilter,
     include: {
       author: { select: { fullName: true } },
       program: { select: { name: true } },

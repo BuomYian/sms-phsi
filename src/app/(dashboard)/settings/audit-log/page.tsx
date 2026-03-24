@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -11,8 +11,9 @@ import {
 } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download, Search } from "lucide-react";
 
 export const metadata = { title: "Audit Log" };
 
@@ -24,8 +25,30 @@ const ACTION_COLORS: Record<string, string> = {
     "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
 };
 
-export default async function AuditLogPage() {
+export default async function AuditLogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; action?: string; entity?: string }>;
+}) {
+  const { q, action: filterAction, entity } = await searchParams;
+
   const logs = await db.auditLog.findMany({
+    where: {
+      ...(q
+        ? {
+            user: {
+              OR: [
+                { fullName: { contains: q, mode: "insensitive" } },
+                { email: { contains: q, mode: "insensitive" } },
+              ],
+            },
+          }
+        : {}),
+      ...(filterAction ? { action: filterAction } : {}),
+      ...(entity
+        ? { entityType: { contains: entity, mode: "insensitive" } }
+        : {}),
+    },
     include: { user: { select: { fullName: true, email: true } } },
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -38,6 +61,8 @@ export default async function AuditLogPage() {
     },
     {} as Record<string, number>,
   );
+
+  const hasFilters = q || filterAction || entity;
 
   return (
     <div className="space-y-6">
@@ -53,17 +78,53 @@ export default async function AuditLogPage() {
             System activity trail — last 200 entries.
           </p>
         </div>
+        <Button variant="outline" size="sm" asChild>
+          <a href="/api/reports/export?type=audit" download>
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
+          </a>
+        </Button>
       </div>
+
+      <form className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            name="q"
+            placeholder="Search by user..."
+            defaultValue={q || ""}
+            className="pl-8"
+          />
+        </div>
+        <Input
+          name="action"
+          placeholder="Action (CREATE, UPDATE...)"
+          defaultValue={filterAction || ""}
+          className="w-44"
+        />
+        <Input
+          name="entity"
+          placeholder="Entity type..."
+          defaultValue={entity || ""}
+          className="w-44"
+        />
+        <Button type="submit" variant="secondary" size="sm">
+          Filter
+        </Button>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/settings/audit-log">Clear</Link>
+          </Button>
+        )}
+      </form>
 
       <div className="flex flex-wrap gap-2">
         {Object.entries(actionCounts).map(([action, count]) => (
-          <Badge
-            key={action}
-            className={ACTION_COLORS[action] ?? ""}
-            variant="outline"
-          >
-            {action}: {count}
-          </Badge>
+          <Link key={action} href={`/settings/audit-log?action=${action}`}>
+            <Badge className={ACTION_COLORS[action] ?? ""} variant="outline">
+              {action}: {count}
+            </Badge>
+          </Link>
         ))}
         <Badge variant="secondary">Total: {logs.length}</Badge>
       </div>

@@ -40,11 +40,13 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, useTransition } from "react";
 import { toast } from "sonner";
 import {
   assignInstructorAction,
   unassignInstructorAction,
+  deleteSubjectAction,
 } from "../../actions";
 
 interface Instructor {
@@ -108,7 +110,9 @@ export function SubjectDetail({
   semesters,
   isAdmin,
 }: SubjectDetailProps) {
+  const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [selectedInstructor, setSelectedInstructor] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("");
@@ -157,6 +161,20 @@ export function SubjectDetail({
     });
   }
 
+  function handleDelete() {
+    setDeleting(true);
+    startTransition(async () => {
+      const result = await deleteSubjectAction(subject.id);
+      setDeleting(false);
+      if (result.success) {
+        toast.success(result.message);
+        router.push("/academics/subjects");
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
   return (
     <>
       {/* Header */}
@@ -177,12 +195,36 @@ export function SubjectDetail({
             </p>
           </div>
         </div>
-        <Button asChild>
-          <Link href={`/academics/subjects/${subject.id}/edit`}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit Subject
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/academics/subjects/${subject.id}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Link>
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="icon">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Subject?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete &quot;{subject.name}&quot; (
+                  {subject.code}). This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting}>
+                  {deleting ? "Deleting..." : "Delete"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       {/* Summary Cards */}

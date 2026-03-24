@@ -191,6 +191,12 @@ export const NAV_ITEMS: NavItem[] = [
       },
     ],
   },
+  // {
+  //   title: "Enrollment",
+  //   href: "/enrollment",
+  //   icon: "ClipboardList",
+  //   roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.STUDENT],
+  // },
   {
     title: "Timetable",
     href: "/timetable",

@@ -15,7 +15,7 @@ export type LoginState = {
 
 export async function loginAction(
   _prevState: LoginState,
-  formData: FormData
+  formData: FormData,
 ): Promise<LoginState> {
   const raw = {
     email: formData.get("email"),
@@ -38,9 +38,46 @@ export async function loginAction(
       return { error: "Invalid email or password." };
     }
 
+    // Check if account is locked
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const minutes = Math.ceil(
+        (user.lockedUntil.getTime() - Date.now()) / 60000,
+      );
+      return {
+        error: `Account is locked due to too many failed attempts. Try again in ${minutes} minute(s).`,
+      };
+    }
+
     const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) {
+      // Increment login attempts
+      const attempts = user.loginAttempts + 1;
+      const lockout =
+        attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
+
+      await db.user.update({
+        where: { id: user.id },
+        data: {
+          loginAttempts: attempts,
+          lockedUntil: lockout,
+        },
+      });
+
+      if (lockout) {
+        return {
+          error: "Too many failed attempts. Account locked for 15 minutes.",
+        };
+      }
+
       return { error: "Invalid email or password." };
+    }
+
+    // Reset login attempts on success
+    if (user.loginAttempts > 0) {
+      await db.user.update({
+        where: { id: user.id },
+        data: { loginAttempts: 0, lockedUntil: null },
+      });
     }
 
     // Create session

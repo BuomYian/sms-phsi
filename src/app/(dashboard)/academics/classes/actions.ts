@@ -61,6 +61,41 @@ export async function createClassAction(
   }
 }
 
+// Update class name
+export async function updateClassAction(
+  classId: string,
+  _prevState: ClassActionState,
+  formData: FormData,
+): Promise<ClassActionState> {
+  const session = await getSession();
+  if (!session || !["SUPER_ADMIN", "ADMIN"].includes(session.role))
+    return { error: "Unauthorized" };
+
+  const name = (formData.get("name") as string)?.trim();
+  if (!name || name.length < 2) {
+    return { error: "Name must be at least 2 characters." };
+  }
+
+  try {
+    const cls = await db.academicClass.findUnique({ where: { id: classId } });
+    if (!cls) return { error: "Class not found." };
+
+    await db.academicClass.update({
+      where: { id: classId },
+      data: { name },
+    });
+
+    await logAction(session.id, "UPDATE", "Class", classId, { name });
+
+    revalidatePath(`/academics/classes/${classId}`);
+    revalidatePath("/academics/classes");
+    return { success: true, message: `Class renamed to "${name}".` };
+  } catch (error) {
+    console.error("Update class error:", error);
+    return { error: "Failed to update class." };
+  }
+}
+
 // Enroll students into a class — auto-creates Enrollment + CourseEnrollments
 export async function enrollStudentsInClassAction(
   classId: string,

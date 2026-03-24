@@ -21,7 +21,7 @@ export const metadata = { title: "Transcripts" };
 export default async function TranscriptsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; class?: string }>;
 }) {
   const [session, params] = await Promise.all([getSession(), searchParams]);
   if (!session) redirect("/login");
@@ -30,20 +30,44 @@ export default async function TranscriptsPage({
   if (!isAdmin) redirect("/grades");
 
   const searchQuery = params.q?.trim() ?? "";
+  const activeClassId = params.class || "";
+
+  // Fetch classes from the current academic year
+  const activeYear = await db.academicYear.findFirst({
+    where: { isCurrent: true },
+    select: { id: true },
+  });
+
+  const classes = activeYear
+    ? await db.academicClass.findMany({
+        where: { academicYearId: activeYear.id },
+        select: { id: true, name: true },
+        orderBy: [{ program: { name: "asc" } }, { yearLevel: "asc" }],
+      })
+    : [];
+
+  // Build student filter
+  const studentWhere: Record<string, unknown> = {};
+
+  if (searchQuery) {
+    studentWhere.OR = [
+      { studentIdNumber: { contains: searchQuery, mode: "insensitive" } },
+      {
+        user: {
+          fullName: { contains: searchQuery, mode: "insensitive" },
+        },
+      },
+    ];
+  }
+
+  if (activeClassId) {
+    studentWhere.classStudents = {
+      some: { classId: activeClassId, status: "ACTIVE" },
+    };
+  }
 
   const students = await db.student.findMany({
-    where: searchQuery
-      ? {
-          OR: [
-            { studentIdNumber: { contains: searchQuery, mode: "insensitive" } },
-            {
-              user: {
-                fullName: { contains: searchQuery, mode: "insensitive" },
-              },
-            },
-          ],
-        }
-      : {},
+    where: studentWhere,
     include: {
       user: { select: { fullName: true } },
       program: { select: { name: true } },
@@ -62,6 +86,20 @@ export default async function TranscriptsPage({
     take: 100,
   });
 
+  // Helper to build filter URLs
+  function filterUrl(overrides: Record<string, string | undefined>) {
+    const p = {
+      class: activeClassId || undefined,
+      q: searchQuery || undefined,
+      ...overrides,
+    };
+    const qs = Object.entries(p)
+      .filter(([, v]) => v)
+      .map(([k, v]) => `${k}=${encodeURIComponent(v!)}`)
+      .join("&");
+    return `/grades/transcripts${qs ? `?${qs}` : ""}`;
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -71,8 +109,36 @@ export default async function TranscriptsPage({
         </p>
       </div>
 
+      {/* Class filter */}
+      {classes.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">Class:</span>
+          <Link href={filterUrl({ class: undefined })}>
+            <Badge
+              variant={!activeClassId ? "default" : "outline"}
+              className="cursor-pointer"
+            >
+              All
+            </Badge>
+          </Link>
+          {classes.map((c) => (
+            <Link key={c.id} href={filterUrl({ class: c.id })}>
+              <Badge
+                variant={activeClassId === c.id ? "default" : "outline"}
+                className="cursor-pointer"
+              >
+                {c.name}
+              </Badge>
+            </Link>
+          ))}
+        </div>
+      )}
+
       {/* Search */}
-      <form className="flex gap-2 max-w-md">
+      <form className="flex gap-2 max-w-md" action="/grades/transcripts">
+        {activeClassId && (
+          <input type="hidden" name="class" value={activeClassId} />
+        )}
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input

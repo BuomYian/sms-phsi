@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useActionState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   ArrowLeft,
   Users,
@@ -41,12 +43,16 @@ import {
   ArrowUpRight,
   Trash2,
   GraduationCap,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   enrollStudentsInClassAction,
   removeStudentFromClassAction,
   promoteStudentsAction,
+  deleteClassAction,
+  updateClassAction,
+  type ClassActionState,
 } from "../actions";
 
 interface ClassInfo {
@@ -97,7 +103,25 @@ export function ClassDetail({
   subjects,
   availableStudents,
 }: ClassDetailProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [deleting, setDeleting] = useState(false);
+
+  // Rename dialog
+  const [renameOpen, setRenameOpen] = useState(false);
+  const initialState: ClassActionState = {};
+  const [, renameAction, renaming] = useActionState(
+    async (prev: ClassActionState, formData: FormData) => {
+      const result = await updateClassAction(cls.id, prev, formData);
+      if (result?.success) {
+        toast.success(result.message);
+        setRenameOpen(false);
+      }
+      if (result?.error) toast.error(result.error);
+      return result;
+    },
+    initialState,
+  );
 
   // Enroll dialog
   const [enrollOpen, setEnrollOpen] = useState(false);
@@ -166,6 +190,20 @@ export function ClassDetail({
         toast.success(result.message);
         setPromoteOpen(false);
         setPromoteStudents(new Set());
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  function handleDeleteClass() {
+    setDeleting(true);
+    startTransition(async () => {
+      const result = await deleteClassAction(cls.id);
+      setDeleting(false);
+      if (result.success) {
+        toast.success(result.message);
+        router.push("/academics/classes");
       } else {
         toast.error(result.error);
       }
@@ -297,6 +335,57 @@ export function ClassDetail({
               </DialogContent>
             </Dialog>
           )}
+          <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Rename Class</DialogTitle>
+              </DialogHeader>
+              <form action={renameAction} className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label>Class Name</Label>
+                  <Input
+                    name="name"
+                    defaultValue={cls.name}
+                    required
+                    minLength={2}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={renaming}>
+                  {renaming ? "Saving..." : "Save"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="icon">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Class?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete &quot;{cls.name}&quot;. Classes
+                  with enrolled students cannot be deleted.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteClass}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting..." : "Delete"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 

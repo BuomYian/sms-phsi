@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,9 +28,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Users, Eye } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Plus, Users, Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { createClassAction, type ClassActionState } from "./actions";
+import {
+  createClassAction,
+  deleteClassAction,
+  type ClassActionState,
+} from "./actions";
 
 interface ClassItem {
   id: string;
@@ -65,6 +80,8 @@ export function ClassesClient({
   academicYears: AcademicYear[];
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isPendingDelete, startDeleteTransition] = useTransition();
   const [selectedProgram, setSelectedProgram] = useState("");
   const [selectedAY, setSelectedAY] = useState(
     () => academicYears.find((a) => a.isCurrent)?.id ?? "",
@@ -89,6 +106,16 @@ export function ClassesClient({
 
   const program = programs.find((p) => p.id === selectedProgram);
   const maxYears = program ? Math.ceil(program.durationSemesters / 2) : 3;
+
+  function handleDelete(classId: string) {
+    setDeletingId(classId);
+    startDeleteTransition(async () => {
+      const result = await deleteClassAction(classId);
+      setDeletingId(null);
+      if (result.success) toast.success(result.message);
+      else toast.error(result.error);
+    });
+  }
 
   return (
     <>
@@ -213,12 +240,47 @@ export function ClassesClient({
                     <Badge variant="secondary">{cls.studentCount}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/academics/classes/${cls.id}`}>
-                        <Eye className="mr-1 h-4 w-4" />
-                        View
-                      </Link>
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/academics/classes/${cls.id}`}>
+                          <Eye className="mr-1 h-4 w-4" />
+                          View
+                        </Link>
+                      </Button>
+                      {cls.studentCount === 0 && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Class?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete &quot;{cls.name}
+                                &quot;. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(cls.id)}
+                                disabled={deletingId === cls.id}
+                              >
+                                {deletingId === cls.id
+                                  ? "Deleting..."
+                                  : "Delete"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

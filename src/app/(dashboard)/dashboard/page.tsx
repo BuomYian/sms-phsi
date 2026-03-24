@@ -138,13 +138,23 @@ async function getAdminStats() {
   };
 }
 
-async function getSharedData() {
+async function getSharedData(userRole: string) {
+  // Build audience filter based on role
+  const audienceValues = [
+    "ALL",
+    ...(userRole === "STUDENT" ? ["STUDENTS"] : []),
+    ...(userRole === "INSTRUCTOR" ? ["INSTRUCTORS", "STAFF"] : []),
+    ...(userRole === "PARENT" ? ["PARENTS"] : []),
+    ...(userRole === "FINANCE" ? ["STAFF"] : []),
+  ];
+
   const [currentAcademicYear, announcements] = await Promise.all([
     db.academicYear.findFirst({
       where: { isCurrent: true },
       include: { semesters: { orderBy: { startDate: "asc" } } },
     }),
     db.announcement.findMany({
+      where: { targetAudience: { in: audienceValues } },
       take: 5,
       orderBy: { publishDate: "desc" },
       include: { author: { select: { fullName: true } } },
@@ -429,7 +439,7 @@ export default async function DashboardPage() {
   if (!session) redirect("/login");
 
   const role = session.role as Role;
-  const shared = await getSharedData();
+  const shared = await getSharedData(session.role);
 
   if (role === Role.SUPER_ADMIN || role === Role.ADMIN) {
     const stats = await getAdminStats();

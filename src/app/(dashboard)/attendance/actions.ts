@@ -116,6 +116,12 @@ export async function deleteAttendanceAction(
   const session = await getSession();
   if (!session) return { error: "Unauthorized" };
 
+  if (session.role !== "SUPER_ADMIN") {
+    return {
+      error: "Only super administrators can delete attendance records.",
+    };
+  }
+
   try {
     await db.attendance.delete({ where: { id: attendanceId } });
 

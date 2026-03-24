@@ -76,6 +76,58 @@ export async function createTimetableEntryAction(
       return { error: "This instructor already has a class at that time." };
     }
 
+    // Check for student schedule conflicts
+    const studentsInSubject = await db.courseEnrollment.findMany({
+      where: {
+        subjectId,
+        enrollment: { status: "APPROVED", semesterId },
+      },
+      select: {
+        enrollment: {
+          select: {
+            student: {
+              select: {
+                user: { select: { fullName: true } },
+              },
+            },
+            courseEnrollments: {
+              select: { subjectId: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (studentsInSubject.length > 0) {
+      const otherSubjectIds = [
+        ...new Set(
+          studentsInSubject.flatMap((s) =>
+            s.enrollment.courseEnrollments
+              .map((ce) => ce.subjectId)
+              .filter((id) => id !== subjectId),
+          ),
+        ),
+      ];
+
+      if (otherSubjectIds.length > 0) {
+        const studentConflict = await db.timetableEntry.findFirst({
+          where: {
+            semesterId,
+            dayOfWeek,
+            subjectId: { in: otherSubjectIds },
+            OR: [{ startTime: { lt: endTime }, endTime: { gt: startTime } }],
+          },
+          include: { subject: { select: { name: true } } },
+        });
+
+        if (studentConflict) {
+          return {
+            error: `Student schedule conflict: overlaps with ${studentConflict.subject.name} at ${studentConflict.startTime}–${studentConflict.endTime}.`,
+          };
+        }
+      }
+    }
+
     const entry = await db.timetableEntry.create({
       data: {
         subjectId,

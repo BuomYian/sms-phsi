@@ -29,6 +29,7 @@ export default async function ExamSchedulePage() {
       semester: {
         include: { academicYear: { select: { name: true } } },
       },
+      class: { select: { name: true } },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });
@@ -68,6 +69,7 @@ export default async function ExamSchedulePage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Time</TableHead>
                 <TableHead>Subject</TableHead>
+                <TableHead>Class</TableHead>
                 <TableHead>Venue</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Semester</TableHead>
@@ -91,6 +93,13 @@ export default async function ExamSchedulePage() {
                       </p>
                     </div>
                   </TableCell>
+                  <TableCell>
+                    {exam.class ? (
+                      <Badge variant="secondary">{exam.class.name}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>{exam.venue}</TableCell>
                   <TableCell>{exam.duration} min</TableCell>
                   <TableCell>
@@ -110,7 +119,7 @@ export default async function ExamSchedulePage() {
               {upcoming.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={isAdmin ? 7 : 6}
+                    colSpan={isAdmin ? 8 : 7}
                     className="h-24 text-center"
                   >
                     No upcoming exams.
@@ -135,6 +144,7 @@ export default async function ExamSchedulePage() {
                   <TableHead>Date</TableHead>
                   <TableHead>Time</TableHead>
                   <TableHead>Subject</TableHead>
+                  <TableHead>Class</TableHead>
                   <TableHead>Venue</TableHead>
                   <TableHead>Duration</TableHead>
                   <TableHead>Semester</TableHead>
@@ -154,6 +164,13 @@ export default async function ExamSchedulePage() {
                           {exam.subject.code}
                         </p>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {exam.class ? (
+                        <Badge variant="secondary">{exam.class.name}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell>{exam.venue}</TableCell>
                     <TableCell>{exam.duration} min</TableCell>

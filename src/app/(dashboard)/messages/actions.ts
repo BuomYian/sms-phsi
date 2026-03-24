@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
+import { logAction } from "@/lib/audit";
 
 export type MessageActionState = {
   error?: string;
@@ -84,5 +85,63 @@ export async function deleteMessageAction(
   } catch (error) {
     console.error("Delete message error:", error);
     return { error: "Failed to delete message." };
+  }
+}
+
+export async function broadcastMessageAction(
+  _prevState: MessageActionState,
+  formData: FormData,
+): Promise<MessageActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN") {
+    return { error: "Only administrators can send broadcast messages." };
+  }
+
+  const targetRole = formData.get("targetRole") as string;
+  const subject = formData.get("subject") as string;
+  const body = formData.get("body") as string;
+
+  if (!targetRole || !subject || !body) {
+    return { error: "Target role, subject, and body are required." };
+  }
+
+  try {
+    const recipients = await db.user.findMany({
+      where: {
+        isActive: true,
+        id: { not: session.id },
+        ...(targetRole !== "ALL" ? { role: targetRole as never } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (recipients.length === 0) {
+      return { error: "No recipients found for the selected role." };
+    }
+
+    await db.message.createMany({
+      data: recipients.map((r) => ({
+        senderId: session.id,
+        recipientId: r.id,
+        subject,
+        body,
+      })),
+    });
+
+    await logAction(session.id, "CREATE", "Message", "broadcast", {
+      targetRole,
+      recipientCount: recipients.length,
+    });
+
+    revalidatePath("/messages");
+    return {
+      success: true,
+      message: `Broadcast sent to ${recipients.length} recipient(s).`,
+    };
+  } catch (error) {
+    console.error("Broadcast message error:", error);
+    return { error: "Failed to send broadcast message." };
   }
 }

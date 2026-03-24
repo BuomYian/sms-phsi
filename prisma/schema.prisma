@@ -111,6 +111,8 @@ model User {
   isActive     Boolean  @default(true) @map("is_active")
   securityQuestion String? @map("security_question")
   securityAnswer   String? @map("security_answer")
+  loginAttempts    Int      @default(0) @map("login_attempts")
+  lockedUntil      DateTime? @map("locked_until")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -126,6 +128,7 @@ model User {
   paymentsRecorded Payment[]          @relation("PaymentRecorder")
   enrollmentsApproved Enrollment[]    @relation("EnrollmentApprover")
   parentLinks      ParentStudent[]    @relation("ParentUser")
+  announcementReads AnnouncementRead[]
 
   @@map("users")
 }
@@ -365,10 +368,11 @@ model AcademicClass {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  program        Program      @relation(fields: [programId], references: [id])
-  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  program        Program        @relation(fields: [programId], references: [id])
+  academicYear   AcademicYear   @relation(fields: [academicYearId], references: [id])
   students       ClassStudent[]
   enrollments    Enrollment[]
+  examSchedules  ExamSchedule[]
 
   @@unique([programId, academicYearId, yearLevel])
   @@map("classes")
@@ -500,19 +504,21 @@ model Grade {
 }
 
 model ExamSchedule {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  subjectId  String   @map("subject_id") @db.Uuid
-  semesterId String   @map("semester_id") @db.Uuid
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectId  String         @map("subject_id") @db.Uuid
+  semesterId String         @map("semester_id") @db.Uuid
+  classId    String?        @map("class_id") @db.Uuid
   date       DateTime
-  startTime  String   @map("start_time")
-  endTime    String   @map("end_time")
+  startTime  String         @map("start_time")
+  endTime    String         @map("end_time")
   venue      String
   duration   Int
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
 
-  subject    Subject  @relation(fields: [subjectId], references: [id])
-  semester   Semester @relation(fields: [semesterId], references: [id])
+  subject    Subject        @relation(fields: [subjectId], references: [id])
+  semester   Semester       @relation(fields: [semesterId], references: [id])
+  class      AcademicClass? @relation(fields: [classId], references: [id])
 
   @@map("exam_schedules")
 }
@@ -613,8 +619,22 @@ model Announcement {
 
   author         User      @relation("AnnouncementAuthor", fields: [createdBy], references: [id])
   program        Program?  @relation(fields: [programId], references: [id])
+  reads          AnnouncementRead[]
 
   @@map("announcements")
+}
+
+model AnnouncementRead {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  announcementId String   @map("announcement_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  readAt         DateTime @default(now()) @map("read_at")
+
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@unique([announcementId, userId])
+  @@map("announcement_reads")
 }
 
 model Message {

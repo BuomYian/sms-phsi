@@ -5,13 +5,29 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   Pencil,
+  Trash2,
   Users,
   GraduationCap,
   BookOpen,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { deleteDepartmentAction } from "../../actions";
 
 interface DepartmentDetailProps {
   department: {
@@ -38,6 +54,24 @@ interface DepartmentDetailProps {
 }
 
 export function DepartmentDetail({ department }: DepartmentDetailProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [deleting, setDeleting] = useState(false);
+
+  function handleDelete() {
+    setDeleting(true);
+    startTransition(async () => {
+      const result = await deleteDepartmentAction(department.id);
+      setDeleting(false);
+      if (result.success) {
+        toast.success(result.message);
+        router.push("/academics/departments");
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
   return (
     <>
       {/* Header */}
@@ -61,12 +95,36 @@ export function DepartmentDetail({ department }: DepartmentDetailProps) {
             </p>
           </div>
         </div>
-        <Button asChild>
-          <Link href={`/academics/departments/${department.id}/edit`}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit Department
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/academics/departments/${department.id}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Link>
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="icon">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Department?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete &quot;{department.name}&quot;.
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting}>
+                  {deleting ? "Deleting..." : "Delete"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       {/* Summary Cards */}

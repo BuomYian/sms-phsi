@@ -576,6 +576,148 @@ export async function deleteSemesterAction(
   }
 }
 
+// --------------- Delete Program ---------------
+export async function deleteProgramAction(
+  id: string,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session || !["SUPER_ADMIN"].includes(session.role))
+    return { error: "Unauthorized. Only Super Admins can delete programs." };
+
+  try {
+    const program = await db.program.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { students: true, subjects: true, classes: true } },
+      },
+    });
+    if (!program) return { error: "Program not found." };
+
+    if (program._count.students > 0) {
+      return {
+        error: `Cannot delete "${program.name}" because it has ${program._count.students} enrolled student(s).`,
+      };
+    }
+
+    if (program._count.classes > 0) {
+      return {
+        error: `Cannot delete "${program.name}" because it has ${program._count.classes} class(es).`,
+      };
+    }
+
+    // Delete related subjects first (cascade not automatic)
+    if (program._count.subjects > 0) {
+      await db.subject.deleteMany({ where: { programId: id } });
+    }
+
+    await db.program.delete({ where: { id } });
+
+    await logAction(session.id, "DELETE", "Program", id, {
+      name: program.name,
+      code: program.code,
+    });
+
+    revalidatePath("/academics/programs");
+    revalidatePath("/academics");
+    return { success: true, message: `Program "${program.name}" deleted.` };
+  } catch (error) {
+    console.error("Delete program error:", error);
+    return { error: "Failed to delete program." };
+  }
+}
+
+// --------------- Delete Subject ---------------
+export async function deleteSubjectAction(
+  id: string,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session || !["SUPER_ADMIN"].includes(session.role))
+    return { error: "Unauthorized. Only Super Admins can delete subjects." };
+
+  try {
+    const subject = await db.subject.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            courseEnrollments: true,
+            timetableEntries: true,
+            examSchedules: true,
+          },
+        },
+      },
+    });
+    if (!subject) return { error: "Subject not found." };
+
+    if (subject._count.courseEnrollments > 0) {
+      return {
+        error: `Cannot delete "${subject.name}" because it has ${subject._count.courseEnrollments} course enrollment(s).`,
+      };
+    }
+
+    await db.subject.delete({ where: { id } });
+
+    await logAction(session.id, "DELETE", "Subject", id, {
+      name: subject.name,
+      code: subject.code,
+    });
+
+    revalidatePath("/academics/subjects");
+    revalidatePath("/academics");
+    return { success: true, message: `Subject "${subject.name}" deleted.` };
+  } catch (error) {
+    console.error("Delete subject error:", error);
+    return { error: "Failed to delete subject." };
+  }
+}
+
+// --------------- Delete Department ---------------
+export async function deleteDepartmentAction(
+  id: string,
+): Promise<AcademicActionState> {
+  const session = await getSession();
+  if (!session || !["SUPER_ADMIN"].includes(session.role))
+    return { error: "Unauthorized. Only Super Admins can delete departments." };
+
+  try {
+    const department = await db.department.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { programs: true, staff: true } },
+      },
+    });
+    if (!department) return { error: "Department not found." };
+
+    if (department._count.programs > 0) {
+      return {
+        error: `Cannot delete "${department.name}" because it has ${department._count.programs} program(s).`,
+      };
+    }
+
+    if (department._count.staff > 0) {
+      return {
+        error: `Cannot delete "${department.name}" because it has ${department._count.staff} staff member(s).`,
+      };
+    }
+
+    await db.department.delete({ where: { id } });
+
+    await logAction(session.id, "DELETE", "Department", id, {
+      name: department.name,
+    });
+
+    revalidatePath("/academics/departments");
+    revalidatePath("/academics");
+    return {
+      success: true,
+      message: `Department "${department.name}" deleted.`,
+    };
+  } catch (error) {
+    console.error("Delete department error:", error);
+    return { error: "Failed to delete department." };
+  }
+}
+
 // --------------- Subject Instructor Assignment ---------------
 export async function assignInstructorAction(
   subjectId: string,

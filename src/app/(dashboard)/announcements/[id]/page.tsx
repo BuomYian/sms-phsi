@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { AnnouncementDetail } from "./announcement-detail";
+import { trackAnnouncementReadAction } from "../actions";
 
 export async function generateMetadata({
   params,
@@ -30,14 +31,24 @@ export default async function AnnouncementDetailPage({
     include: {
       author: { select: { fullName: true } },
       program: { select: { name: true } },
+      reads: { select: { id: true } },
     },
   });
 
   if (!announcement) notFound();
 
+  // Track this read
+  if (session) {
+    await trackAnnouncementReadAction(id);
+  }
+
   return (
     <div className="space-y-6">
-      <AnnouncementDetail announcement={announcement} isAdmin={isAdmin} />
+      <AnnouncementDetail
+        announcement={announcement}
+        isAdmin={isAdmin}
+        readCount={announcement.reads.length}
+      />
     </div>
   );
 }

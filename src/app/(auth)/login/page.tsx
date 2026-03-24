@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { GraduationCap, Loader2 } from "lucide-react";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState<LoginState, FormData>(
@@ -85,6 +86,15 @@ export default function LoginPage() {
                 "Sign in"
               )}
             </Button>
+
+            <div className="text-center">
+              <Link
+                href="/reset-password"
+                className="text-sm text-muted-foreground hover:text-primary hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
           </form>
         </CardContent>
       </Card>

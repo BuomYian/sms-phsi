@@ -12,7 +12,7 @@ export default async function NewExamPage() {
   const isAdmin = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
   if (!isAdmin) redirect("/grades/exams");
 
-  const [subjects, semesters] = await Promise.all([
+  const [subjects, semesters, activeYear] = await Promise.all([
     db.subject.findMany({
       select: { id: true, code: true, name: true },
       orderBy: { code: "asc" },
@@ -21,7 +21,19 @@ export default async function NewExamPage() {
       include: { academicYear: { select: { name: true } } },
       orderBy: [{ academicYear: { startDate: "desc" } }, { startDate: "asc" }],
     }),
+    db.academicYear.findFirst({
+      where: { isCurrent: true },
+      select: { id: true },
+    }),
   ]);
+
+  const classes = activeYear
+    ? await db.academicClass.findMany({
+        where: { academicYearId: activeYear.id },
+        select: { id: true, name: true },
+        orderBy: [{ program: { name: "asc" } }, { yearLevel: "asc" }],
+      })
+    : [];
 
   return (
     <div className="space-y-6">
@@ -39,6 +51,7 @@ export default async function NewExamPage() {
           academicYearName: s.academicYear.name,
           isCurrent: s.isCurrent,
         }))}
+        classes={classes}
       />
     </div>
   );

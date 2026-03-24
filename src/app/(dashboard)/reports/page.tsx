@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   BookOpen,
   BarChart3,
+  Download,
 } from "lucide-react";
 
 export const metadata = { title: "Reports" };
@@ -28,36 +29,42 @@ export default async function ReportsPage() {
       description: `${studentCount} students total — enrollment, demographics, and status analytics`,
       icon: GraduationCap,
       href: "/reports/students",
+      exportType: "students",
     },
     {
       title: "Staff Report",
       description: `${staffCount} staff members — department distribution and roles`,
       icon: Users,
       href: "/reports/staff",
+      exportType: "staff",
     },
     {
       title: "Academic Report",
       description: `${programCount} programs — performance, grades, and pass rates`,
       icon: BookOpen,
       href: "/reports/academic",
+      exportType: "academic",
     },
     {
       title: "Financial Report",
       description: `${paymentCount} payments — collections, outstanding, and projections`,
       icon: DollarSign,
       href: "/reports/financial",
+      exportType: "financial",
     },
     {
       title: "Attendance Report",
       description: "Attendance trends, rates, and low-attendance flags",
       icon: ClipboardCheck,
       href: "/reports/attendance",
+      exportType: "attendance",
     },
     {
       title: "Summary Dashboard",
       description: "High-level institutional KPIs and charts",
       icon: BarChart3,
       href: "/reports/summary",
+      exportType: null,
     },
   ];
 
@@ -81,9 +88,22 @@ export default async function ReportsPage() {
               <p className="text-sm text-muted-foreground mb-4">
                 {r.description}
               </p>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={r.href}>View Report →</Link>
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={r.href}>View Report →</Link>
+                </Button>
+                {r.exportType && (
+                  <Button variant="ghost" size="sm" asChild>
+                    <a
+                      href={`/api/reports/export?type=${r.exportType}`}
+                      download
+                    >
+                      <Download className="mr-1 h-3.5 w-3.5" />
+                      CSV
+                    </a>
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}

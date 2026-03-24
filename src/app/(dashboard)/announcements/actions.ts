@@ -176,3 +176,22 @@ export async function markMessageReadAction(messageId: string) {
 
   revalidatePath("/messages");
 }
+
+export async function trackAnnouncementReadAction(announcementId: string) {
+  const session = await getSession();
+  if (!session) return;
+
+  await db.announcementRead.upsert({
+    where: {
+      announcementId_userId: {
+        announcementId,
+        userId: session.id,
+      },
+    },
+    update: {},
+    create: {
+      announcementId,
+      userId: session.id,
+    },
+  });
+}

@@ -38,6 +38,20 @@ export async function submitGradeAction(
   const gpaPoints = getGPAPoints(gradeLetter);
 
   try {
+    // Verify the enrollment is approved before allowing grade submission
+    const courseEnrollment = await db.courseEnrollment.findUnique({
+      where: { id: courseEnrollmentId },
+      include: { enrollment: { select: { status: true } } },
+    });
+
+    if (!courseEnrollment) {
+      return { error: "Course enrollment not found." };
+    }
+
+    if (courseEnrollment.enrollment.status !== "APPROVED") {
+      return { error: "Cannot submit grades for unapproved enrollments." };
+    }
+
     await db.grade.upsert({
       where: { courseEnrollmentId },
       update: {
@@ -177,6 +191,7 @@ export async function createExamScheduleAction(
 
   const subjectId = formData.get("subjectId") as string;
   const semesterId = formData.get("semesterId") as string;
+  const classId = (formData.get("classId") as string) || null;
   const date = formData.get("date") as string;
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
@@ -200,6 +215,7 @@ export async function createExamScheduleAction(
       data: {
         subjectId,
         semesterId,
+        classId,
         date: new Date(date),
         startTime,
         endTime,
@@ -231,6 +247,7 @@ export async function updateExamScheduleAction(
   const id = formData.get("id") as string;
   const subjectId = formData.get("subjectId") as string;
   const semesterId = formData.get("semesterId") as string;
+  const classId = (formData.get("classId") as string) || null;
   const date = formData.get("date") as string;
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
@@ -256,6 +273,7 @@ export async function updateExamScheduleAction(
       data: {
         subjectId,
         semesterId,
+        classId,
         date: new Date(date),
         startTime,
         endTime,

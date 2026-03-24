@@ -10,7 +10,11 @@ type TimetableEntry = {
   startTime: string;
   endTime: string;
   room: string;
-  subject: { name: string; code: string };
+  subject: {
+    name: string;
+    code: string;
+    program?: { name: string; code: string } | null;
+  };
   instructor: { user: { fullName: string } };
 };
 
@@ -44,7 +48,13 @@ function timeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
-export default function WeeklyGrid({ entries }: { entries: TimetableEntry[] }) {
+export default function WeeklyGrid({
+  entries,
+  showProgram = false,
+}: {
+  entries: TimetableEntry[];
+  showProgram?: boolean;
+}) {
   const startOfDay = timeToMinutes("07:00");
   const endOfDay = timeToMinutes("18:00");
   const totalMinutes = endOfDay - startOfDay;
@@ -122,6 +132,12 @@ export default function WeeklyGrid({ entries }: { entries: TimetableEntry[] }) {
                     >
                       <p className="font-semibold leading-tight truncate">
                         {entry.subject.code}
+                        {showProgram && entry.subject.program && (
+                          <span className="font-normal opacity-70">
+                            {" "}
+                            ({entry.subject.program.code})
+                          </span>
+                        )}
                       </p>
                       <p className="truncate leading-tight opacity-80">
                         {entry.subject.name}

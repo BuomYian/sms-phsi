@@ -6,14 +6,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   Pencil,
+  Trash2,
   GraduationCap,
   BookOpen,
   Users,
   Clock,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { deleteProgramAction } from "../../actions";
 
 interface ProgramDetailProps {
   program: {
@@ -57,6 +73,24 @@ function InfoItem({
 }
 
 export function ProgramDetail({ program }: ProgramDetailProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [deleting, setDeleting] = useState(false);
+
+  function handleDelete() {
+    setDeleting(true);
+    startTransition(async () => {
+      const result = await deleteProgramAction(program.id);
+      setDeleting(false);
+      if (result.success) {
+        toast.success(result.message);
+        router.push("/academics/programs");
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
   // Group subjects by semester
   const semesters = new Map<number, typeof program.subjects>();
   for (const subject of program.subjects) {
@@ -93,12 +127,36 @@ export function ProgramDetail({ program }: ProgramDetailProps) {
             </p>
           </div>
         </div>
-        <Button asChild>
-          <Link href={`/academics/programs/${program.id}/edit`}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit Program
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/academics/programs/${program.id}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Link>
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="icon">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Program?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete &quot;{program.name}&quot; and
+                  all its subjects. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting}>
+                  {deleting ? "Deleting..." : "Delete"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       {/* Summary Cards */}

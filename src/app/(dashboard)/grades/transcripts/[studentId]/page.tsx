@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { INSTITUTION_NAME, INSTITUTION_ADDRESS } from "@/constants";
 import { ArrowLeft } from "lucide-react";
+import { DownloadTranscriptButton } from "./download-button";
 
 export async function generateMetadata({
   params,
@@ -112,18 +113,21 @@ export default async function TranscriptDetailPage({
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/grades/transcripts">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Academic Transcript
-          </h1>
-          <p className="text-muted-foreground">{INSTITUTION_NAME}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/grades/transcripts">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Academic Transcript
+            </h1>
+            <p className="text-muted-foreground">{INSTITUTION_NAME}</p>
+          </div>
         </div>
+        <DownloadTranscriptButton studentId={studentId} />
       </div>
 
       {/* Student Info */}

@@ -1,29 +1,44 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { Plus, Mail, MailOpen } from "lucide-react";
+import { Plus, Mail, MailOpen, Search } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const metadata = { title: "Messages" };
 
-export default async function MessagesPage() {
+export default async function MessagesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const session = await getSession();
   if (!session) redirect("/login");
 
+  const { q } = await searchParams;
+  const searchFilter = q
+    ? {
+        OR: [
+          { subject: { contains: q, mode: "insensitive" as const } },
+          { body: { contains: q, mode: "insensitive" as const } },
+        ],
+      }
+    : {};
+
   const [inbox, sent] = await Promise.all([
     db.message.findMany({
-      where: { recipientId: session.id },
+      where: { recipientId: session.id, ...searchFilter },
       include: { sender: { select: { fullName: true } } },
       orderBy: { createdAt: "desc" },
       take: 50,
     }),
     db.message.findMany({
-      where: { senderId: session.id },
+      where: { senderId: session.id, ...searchFilter },
       include: { recipient: { select: { fullName: true } } },
       orderBy: { createdAt: "desc" },
       take: 50,
@@ -49,6 +64,26 @@ export default async function MessagesPage() {
           </Link>
         </Button>
       </div>
+
+      <form className="flex gap-2 max-w-md">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            name="q"
+            placeholder="Search messages..."
+            defaultValue={q || ""}
+            className="pl-8"
+          />
+        </div>
+        <Button type="submit" variant="secondary" size="sm">
+          Search
+        </Button>
+        {q && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/messages">Clear</Link>
+          </Button>
+        )}
+      </form>
 
       <Tabs defaultValue="inbox">
         <TabsList>

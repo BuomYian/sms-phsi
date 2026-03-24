@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "phsi-default-secret-change-in-production",
-);
+if (!process.env.JWT_SECRET) {
+  throw new Error(
+    "JWT_SECRET environment variable is required. Set it in your .env file.",
+  );
+}
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 const COOKIE_NAME = "phsi-session";
 
@@ -25,6 +29,7 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
   "/staff": ["SUPER_ADMIN", "ADMIN"],
   "/parents": ["SUPER_ADMIN", "ADMIN"],
   "/academics": ["SUPER_ADMIN", "ADMIN", "INSTRUCTOR"],
+  // "/enrollment": ["SUPER_ADMIN", "ADMIN", "STUDENT"],
   "/timetable": ["SUPER_ADMIN", "ADMIN", "INSTRUCTOR", "STUDENT"],
   "/attendance": ["SUPER_ADMIN", "ADMIN", "INSTRUCTOR"],
   "/grades": ["SUPER_ADMIN", "ADMIN", "INSTRUCTOR", "STUDENT"],
@@ -93,8 +98,33 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // Add user info to headers for downstream use
+    // Refresh token if within 24 hours of expiry
     const response = NextResponse.next();
+    const exp = payload.exp ?? 0;
+    const hoursUntilExpiry = (exp * 1000 - Date.now()) / (1000 * 60 * 60);
+    if (hoursUntilExpiry < 24 && hoursUntilExpiry > 0) {
+      const newToken = await new SignJWT({
+        sub: payload.sub,
+        email: payload.email,
+        role: payload.role,
+        fullName: payload.fullName,
+        avatarUrl: payload.avatarUrl,
+      })
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime("7d")
+        .sign(JWT_SECRET);
+
+      response.cookies.set(COOKIE_NAME, newToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7,
+      });
+    }
+
+    // Add user info to headers for downstream use
     response.headers.set("x-user-id", payload.sub as string);
     response.headers.set("x-user-role", userRole);
     return response;

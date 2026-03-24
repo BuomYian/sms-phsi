@@ -43,6 +43,7 @@ type Props = {
     id: string;
     subjectId: string;
     semesterId: string;
+    classId: string;
     date: string;
     startTime: string;
     endTime: string;
@@ -56,9 +57,15 @@ type Props = {
     academicYearName: string;
     isCurrent: boolean;
   }[];
+  classes: { id: string; name: string }[];
 };
 
-export default function ExamEditForm({ exam, subjects, semesters }: Props) {
+export default function ExamEditForm({
+  exam,
+  subjects,
+  semesters,
+  classes,
+}: Props) {
   const router = useRouter();
   const initialState: GradeActionState = {};
   const [state, formAction, isPending] = useActionState(
@@ -159,6 +166,24 @@ export default function ExamEditForm({ exam, subjects, semesters }: Props) {
               </Select>
             </div>
           </div>
+
+          {classes.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="classId">Class</Label>
+              <Select name="classId" defaultValue={exam.classId ?? ""}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select class (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {classes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
