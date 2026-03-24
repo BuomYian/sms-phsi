@@ -752,17 +752,15 @@ async function main() {
     {
       key: "grading_scale",
       value: JSON.stringify([
-        { letter: "A", minScore: 70, maxScore: 100, gpaPoints: 4.0 },
-        { letter: "B+", minScore: 65, maxScore: 69, gpaPoints: 3.5 },
-        { letter: "B", minScore: 60, maxScore: 64, gpaPoints: 3.0 },
-        { letter: "C+", minScore: 55, maxScore: 59, gpaPoints: 2.5 },
-        { letter: "C", minScore: 50, maxScore: 54, gpaPoints: 2.0 },
-        { letter: "D", minScore: 45, maxScore: 49, gpaPoints: 1.5 },
-        { letter: "F", minScore: 0, maxScore: 44, gpaPoints: 0.0 },
+        { letter: "A", minScore: 80, maxScore: 100, gpaPoints: 4.0 },
+        { letter: "B", minScore: 70, maxScore: 79, gpaPoints: 3.0 },
+        { letter: "C", minScore: 60, maxScore: 69, gpaPoints: 2.0 },
+        { letter: "D", minScore: 50, maxScore: 59, gpaPoints: 1.5 },
+        { letter: "E", minScore: 0, maxScore: 49, gpaPoints: 1.0 },
       ]),
       category: "academic",
     },
-    { key: "default_currency", value: "SSP", category: "finance" },
+    { key: "default_currency", value: "USD", category: "finance" },
     { key: "block_registration_unpaid", value: "true", category: "finance" },
     { key: "fee_payment_deadline_days", value: "30", category: "finance" },
   ];

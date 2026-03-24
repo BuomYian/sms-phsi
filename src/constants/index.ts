@@ -320,6 +320,7 @@ export const NAV_ITEMS: NavItem[] = [
       Role.FINANCE,
       Role.INSTRUCTOR,
       Role.STUDENT,
+      Role.PARENT,
     ],
   },
   {

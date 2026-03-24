@@ -400,12 +400,6 @@ export function AdminDashboard({
               </Link>
             </Button>
             <Button variant="outline" className="justify-start" asChild>
-              <Link href="/enrollment">
-                <ClipboardList className="mr-2 h-4 w-4" />
-                Manage Enrollment
-              </Link>
-            </Button>
-            <Button variant="outline" className="justify-start" asChild>
               <Link href="/announcements">
                 <Megaphone className="mr-2 h-4 w-4" />
                 Manage Announcements
