@@ -63,6 +63,8 @@ export async function createStaffAction(
     await db.$transaction(async (tx) => {
       const passwordHash = await hashPassword(staffIdNumber);
 
+      const securityAnswerHash = await hashPassword("phsi");
+
       const user = await tx.user.create({
         data: {
           email: input.email.toLowerCase(),
@@ -70,6 +72,8 @@ export async function createStaffAction(
           role: input.role,
           fullName: input.fullName,
           phone: input.phone || null,
+          securityQuestion: "What is the name of this institution?",
+          securityAnswer: securityAnswerHash,
         },
       });
 

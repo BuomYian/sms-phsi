@@ -30,6 +30,7 @@ import {
 import {
   updateProfileAction,
   changePasswordAction,
+  updateSecurityQuestionAction,
   type ProfileActionState,
 } from "./actions";
 
@@ -51,6 +52,7 @@ interface ProfileFormProps {
     staffDepartment?: string | null;
     staffEmploymentType?: string | null;
     staffDateOfHire?: string | null;
+    hasSecurityQuestion?: boolean;
   };
 }
 
@@ -128,6 +130,10 @@ export function ProfileForm({ user }: ProfileFormProps) {
     changePasswordAction,
     initialState,
   );
+  const [securityState, securityAction, securityPending] = useActionState(
+    updateSecurityQuestionAction,
+    initialState,
+  );
 
   useEffect(() => {
     if (profileState.success) toast.success(profileState.message);
@@ -138,6 +144,11 @@ export function ProfileForm({ user }: ProfileFormProps) {
     if (passwordState.success) toast.success(passwordState.message);
     if (passwordState.error) toast.error(passwordState.error);
   }, [passwordState]);
+
+  useEffect(() => {
+    if (securityState.success) toast.success(securityState.message);
+    if (securityState.error) toast.error(securityState.error);
+  }, [securityState]);
 
   const roleLabels: Record<string, string> = {
     SUPER_ADMIN: "Super Admin",
@@ -399,6 +410,59 @@ export function ProfileForm({ user }: ProfileFormProps) {
                 disabled={passwordPending}
               >
                 {passwordPending ? "Updating..." : "Change Password"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Security Question */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Security Question
+          </CardTitle>
+          <CardDescription>
+            {user.hasSecurityQuestion
+              ? "Update your security question for password recovery."
+              : 'Set a security question to enable password recovery via "Forgot Password".'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={securityAction} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="securityQuestion">Security Question</Label>
+              <Input
+                id="securityQuestion"
+                name="securityQuestion"
+                required
+                placeholder="e.g. What is your mother's maiden name?"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="securityAnswer">Answer</Label>
+              <Input
+                id="securityAnswer"
+                name="securityAnswer"
+                required
+                placeholder="Your answer (case-insensitive)"
+              />
+              <p className="text-xs text-muted-foreground">
+                You will need this answer to reset your password.
+              </p>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                variant="outline"
+                disabled={securityPending}
+              >
+                {securityPending
+                  ? "Saving..."
+                  : user.hasSecurityQuestion
+                    ? "Update Security Question"
+                    : "Set Security Question"}
               </Button>
             </div>
           </form>

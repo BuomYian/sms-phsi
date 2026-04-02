@@ -58,6 +58,8 @@ export async function createParentAction(
     const defaultPassword = input.email.split("@")[0];
     const passwordHash = await hashPassword(defaultPassword);
 
+    const securityAnswerHash = await hashPassword("phsi");
+
     const user = await db.user.create({
       data: {
         email: input.email.toLowerCase(),
@@ -65,6 +67,8 @@ export async function createParentAction(
         role: "PARENT",
         fullName: input.fullName,
         phone: input.phone || null,
+        securityQuestion: "What is the name of this institution?",
+        securityAnswer: securityAnswerHash,
       },
     });
 

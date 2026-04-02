@@ -73,12 +73,15 @@ export async function createUserAction(
     if (existing) return { error: "Email already in use." };
 
     const hashedPassword = await hashPassword(password);
+    const securityAnswerHash = await hashPassword("phsi");
     const user = await db.user.create({
       data: {
         fullName,
         email,
         passwordHash: hashedPassword,
         role: role as any,
+        securityQuestion: "What is the name of this institution?",
+        securityAnswer: securityAnswerHash,
       },
     });
 

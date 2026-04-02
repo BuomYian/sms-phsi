@@ -79,6 +79,8 @@ export async function createStudentAction(
     const result = await db.$transaction(async (tx) => {
       const passwordHash = await hashPassword(studentIdNumber);
 
+      const securityAnswerHash = await hashPassword("phsi");
+
       const user = await tx.user.create({
         data: {
           email: input.email.toLowerCase(),
@@ -86,6 +88,8 @@ export async function createStudentAction(
           role: "STUDENT",
           fullName: input.fullName,
           phone: input.phone || null,
+          securityQuestion: "What is the name of this institution?",
+          securityAnswer: securityAnswerHash,
         },
       });
 

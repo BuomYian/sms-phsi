@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { hashPassword } from "@/lib/auth/password";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { logAction } from "@/lib/audit";
 
 export type ResetState = {
@@ -75,8 +75,12 @@ export async function resetPasswordAction(
     return { error: "Invalid request.", step: "email" };
   }
 
-  // Case-insensitive comparison
-  if (user.securityAnswer.toLowerCase() !== answer.toLowerCase()) {
+  // Case-insensitive comparison against bcrypt hash
+  const isCorrect = await verifyPassword(
+    answer.toLowerCase(),
+    user.securityAnswer,
+  );
+  if (!isCorrect) {
     return {
       error: "Incorrect security answer.",
       step: "question",

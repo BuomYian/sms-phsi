@@ -13,7 +13,7 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 const COOKIE_NAME = "phsi-session";
 
 // Public routes that don't require authentication
-const PUBLIC_ROUTES = ["/login", "/forgot-password"];
+const PUBLIC_ROUTES = ["/login", "/reset-password"];
 
 // Route permissions mapping
 const ROUTE_PERMISSIONS: Record<string, string[]> = {

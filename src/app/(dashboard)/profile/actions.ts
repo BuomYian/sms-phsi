@@ -120,3 +120,44 @@ export async function changePasswordAction(
     return { error: "Failed to change password." };
   }
 }
+
+export async function updateSecurityQuestionAction(
+  _prevState: ProfileActionState,
+  formData: FormData,
+): Promise<ProfileActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Unauthorized" };
+
+  const securityQuestion = (formData.get("securityQuestion") as string)?.trim();
+  const securityAnswer = (formData.get("securityAnswer") as string)?.trim();
+
+  if (!securityQuestion || !securityAnswer) {
+    return { error: "Both security question and answer are required." };
+  }
+
+  if (securityAnswer.length < 2) {
+    return { error: "Security answer must be at least 2 characters." };
+  }
+
+  try {
+    const hashedAnswer = await hashPassword(securityAnswer.toLowerCase());
+
+    await db.user.update({
+      where: { id: session.id },
+      data: { securityQuestion, securityAnswer: hashedAnswer },
+    });
+
+    await logAction(session.id, "UPDATE", "User", session.id, {
+      field: "securityQuestion",
+    });
+
+    revalidatePath("/profile");
+    return {
+      success: true,
+      message: "Security question updated successfully.",
+    };
+  } catch (error) {
+    console.error("Update security question error:", error);
+    return { error: "Failed to update security question." };
+  }
+}

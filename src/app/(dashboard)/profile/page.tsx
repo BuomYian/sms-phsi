@@ -21,6 +21,7 @@ export default async function ProfilePage() {
       role: true,
       avatarUrl: true,
       createdAt: true,
+      securityQuestion: true,
       student: {
         select: {
           studentIdNumber: true,
@@ -68,6 +69,7 @@ export default async function ProfilePage() {
           role: user.role,
           avatarUrl: user.avatarUrl,
           createdAt: user.createdAt.toISOString(),
+          hasSecurityQuestion: !!user.securityQuestion,
           studentIdNumber: user.student?.studentIdNumber ?? null,
           staffIdNumber: user.staff?.staffIdNumber ?? null,
           studentProgram: user.student?.program?.name ?? null,
