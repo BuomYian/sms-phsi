@@ -42,7 +42,14 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
     "STUDENT",
     "PARENT",
   ],
-  "/messages": ["SUPER_ADMIN", "ADMIN", "FINANCE", "INSTRUCTOR", "STUDENT"],
+  "/messages": [
+    "SUPER_ADMIN",
+    "ADMIN",
+    "FINANCE",
+    "INSTRUCTOR",
+    "STUDENT",
+    "PARENT",
+  ],
   "/reports": ["SUPER_ADMIN", "ADMIN", "FINANCE"],
   "/settings": ["SUPER_ADMIN", "ADMIN"],
 };

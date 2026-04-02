@@ -250,17 +250,86 @@ export async function enrollStudentsInClassAction(
 
     enrolledCount = newStudentIds.length;
 
+    // Step 4: Auto-assign fee structures for this program/academic year/semesters
+    let feesAssigned = 0;
+    const feeStructures = await db.feeStructure.findMany({
+      where: {
+        programId: cls.programId,
+        academicYearId: cls.academicYearId,
+        semesterId: { in: semesterIds },
+      },
+    });
+
+    if (feeStructures.length > 0) {
+      // Pre-fetch existing student fees to avoid duplicates
+      const existingFees = await db.studentFee.findMany({
+        where: {
+          studentId: { in: newStudentIds },
+          feeStructureId: { in: feeStructures.map((f) => f.id) },
+        },
+        select: { studentId: true, feeStructureId: true },
+      });
+      const existingFeeSet = new Set(
+        existingFees.map((ef) => `${ef.studentId}:${ef.feeStructureId}`),
+      );
+
+      const now = new Date();
+      for (const studentId of newStudentIds) {
+        // Check for active scholarship once per student
+        const scholarship = await db.scholarship.findFirst({
+          where: {
+            studentId,
+            startDate: { lte: now },
+            endDate: { gte: now },
+          },
+        });
+
+        for (const fee of feeStructures) {
+          if (existingFeeSet.has(`${studentId}:${fee.id}`)) continue;
+
+          const amountCharged = Number(fee.amount);
+          let balance = amountCharged;
+          let status = "UNPAID";
+
+          if (scholarship) {
+            let discount = 0;
+            if (scholarship.percentage) {
+              discount = amountCharged * (scholarship.percentage / 100);
+            } else if (scholarship.amount) {
+              discount = Math.min(Number(scholarship.amount), amountCharged);
+            }
+            balance = amountCharged - discount;
+            status = balance <= 0 ? "PAID" : "UNPAID";
+          }
+
+          await db.studentFee.create({
+            data: {
+              studentId,
+              feeStructureId: fee.id,
+              amountCharged: fee.amount,
+              amountPaid: 0,
+              balance,
+              status,
+            },
+          });
+          feesAssigned++;
+        }
+      }
+    }
+
     await logAction(session.id, "CREATE", "ClassEnrollment", classId, {
       enrolled: enrolledCount,
       skipped: skippedCount,
       totalSubjects: subjects.length,
+      feesAssigned,
     });
 
     revalidatePath(`/academics/classes/${classId}`);
     revalidatePath("/enrollment");
+    revalidatePath("/fees");
     return {
       success: true,
-      message: `Enrolled ${enrolledCount} student(s) into ${cls.name}. ${skippedCount > 0 ? `${skippedCount} already enrolled.` : ""}`,
+      message: `Enrolled ${enrolledCount} student(s) into ${cls.name}${feesAssigned > 0 ? ` and assigned ${feesAssigned} fee(s)` : ""}. ${skippedCount > 0 ? `${skippedCount} already enrolled.` : ""}`,
     };
   } catch (error) {
     console.error("Enroll students error:", error);

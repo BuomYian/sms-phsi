@@ -33,6 +33,7 @@ export const ROUTE_PERMISSIONS: Record<string, Role[]> = {
     Role.FINANCE,
     Role.INSTRUCTOR,
     Role.STUDENT,
+    Role.PARENT,
   ],
   "/reports": [Role.SUPER_ADMIN, Role.ADMIN, Role.FINANCE],
   "/settings": [Role.SUPER_ADMIN, Role.ADMIN],
@@ -122,6 +123,7 @@ const MODULE_PERMISSIONS: Record<string, Record<Action, Role[]>> = {
       Role.FINANCE,
       Role.INSTRUCTOR,
       Role.STUDENT,
+      Role.PARENT,
     ],
     read: [
       Role.SUPER_ADMIN,
@@ -129,6 +131,7 @@ const MODULE_PERMISSIONS: Record<string, Record<Action, Role[]>> = {
       Role.FINANCE,
       Role.INSTRUCTOR,
       Role.STUDENT,
+      Role.PARENT,
     ],
     update: [Role.SUPER_ADMIN],
     delete: [Role.SUPER_ADMIN],
