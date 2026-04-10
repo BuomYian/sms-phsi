@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   },
   description:
     "School Management System for Presbyterian Health Science Institute, Juba, South Sudan",
-  icons: { icon: "/favicon.ico" },
+  icons: { icon: "/phsi-logo.png" },
 };
 
 export default function RootLayout({

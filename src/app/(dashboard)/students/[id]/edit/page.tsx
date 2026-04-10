@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth/session";
 import { StudentEditForm } from "./student-edit-form";
 
 export async function generateMetadata({
@@ -23,6 +24,10 @@ export default async function StudentEditPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getSession();
+  if (!session) redirect("/login");
+  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")
+    redirect(`/students/${id}`);
 
   const [student, programs] = await Promise.all([
     db.student.findUnique({

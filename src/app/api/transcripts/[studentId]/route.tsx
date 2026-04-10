@@ -5,9 +5,11 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
   renderToBuffer,
 } from "@react-pdf/renderer";
+import path from "path";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import {
@@ -42,10 +44,21 @@ const s = StyleSheet.create({
   },
   /* Header */
   headerBox: {
-    textAlign: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 14,
     borderBottom: "2px solid #1a1a1a",
     paddingBottom: 10,
+  },
+  headerLogo: {
+    width: 60,
+    height: 60,
+    objectFit: "contain",
+  },
+  headerCenter: {
+    flex: 1,
+    textAlign: "center",
   },
   instName: {
     fontSize: 16,
@@ -245,10 +258,20 @@ function TranscriptDocument({
 
         {/* Institution Header */}
         <View style={s.headerBox} fixed>
-          <Text style={s.instName}>{INSTITUTION_NAME}</Text>
-          <Text style={s.instAddress}>{INSTITUTION_ADDRESS}</Text>
-          <Text style={s.instMotto}>{INSTITUTION_MOTTO}</Text>
-          <Text style={s.titleLine}>Official Academic Transcript</Text>
+          <Image
+            style={s.headerLogo}
+            src={path.join(process.cwd(), "public/phsi-logo.png")}
+          />
+          <View style={s.headerCenter}>
+            <Text style={s.instName}>{INSTITUTION_NAME}</Text>
+            <Text style={s.instAddress}>{INSTITUTION_ADDRESS}</Text>
+            <Text style={s.instMotto}>{INSTITUTION_MOTTO}</Text>
+            <Text style={s.titleLine}>Official Academic Transcript</Text>
+          </View>
+          <Image
+            style={s.headerLogo}
+            src={path.join(process.cwd(), "public/prda-logo.jpeg")}
+          />
         </View>
 
         {/* Student Information */}

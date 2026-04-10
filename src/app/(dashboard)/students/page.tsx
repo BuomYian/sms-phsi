@@ -1,8 +1,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
-import { DataTable } from "@/components/data-table";
-import { columns } from "./columns";
+import { StudentsDataTable } from "./students-data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -164,10 +163,9 @@ export default async function StudentsPage() {
                             {yearStudents.length}
                           </Badge>
                         </div>
-                        <DataTable
-                          columns={columns}
+                        <StudentsDataTable
                           data={yearStudents}
-                          searchKey="studentIdNumber"
+                          isAdmin={isAdmin}
                           searchPlaceholder={`Search Year ${year} students...`}
                           pageSize={5}
                         />
@@ -211,12 +209,7 @@ export default async function StudentsPage() {
         )}
       </div>
 
-      <DataTable
-        columns={columns}
-        data={students}
-        searchKey="studentIdNumber"
-        searchPlaceholder="Search students..."
-      />
+      <StudentsDataTable data={students} isAdmin={isAdmin} />
     </div>
   );
 }

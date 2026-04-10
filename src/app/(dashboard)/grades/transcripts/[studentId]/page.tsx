@@ -17,6 +17,7 @@ import {
 import { INSTITUTION_NAME, INSTITUTION_ADDRESS } from "@/constants";
 import { ArrowLeft } from "lucide-react";
 import { DownloadTranscriptButton } from "./download-button";
+import Image from "next/image";
 
 export async function generateMetadata({
   params,
@@ -129,6 +130,39 @@ export default async function TranscriptDetailPage({
         </div>
         <DownloadTranscriptButton studentId={studentId} />
       </div>
+
+      {/* Transcript Logos + Institution Banner */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <Image
+              src="/phsi-logo.png"
+              alt="PHSI Logo"
+              width={80}
+              height={80}
+              className="object-contain"
+            />
+            <div className="text-center">
+              <h2 className="text-lg font-bold uppercase tracking-widest">
+                {INSTITUTION_NAME}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {INSTITUTION_ADDRESS}
+              </p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] mt-1">
+                Official Academic Transcript
+              </p>
+            </div>
+            <Image
+              src="/prda-logo.jpeg"
+              alt="PRDA Logo"
+              width={80}
+              height={80}
+              className="object-contain"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Student Info */}
       <Card>

@@ -27,7 +27,7 @@ export type StudentRow = {
   user: { fullName: string; email: string; phone: string | null };
 };
 
-export const columns: ColumnDef<StudentRow>[] = [
+export const getColumns = (isAdmin: boolean): ColumnDef<StudentRow>[] => [
   {
     accessorKey: "studentIdNumber",
     header: "Student ID",
@@ -117,17 +117,21 @@ export const columns: ColumnDef<StudentRow>[] = [
                 View Details
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`/students/${student.id}/edit`}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600">
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
+            {isAdmin && (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href={`/students/${student.id}/edit`}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-red-600">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       );

@@ -149,6 +149,8 @@ export async function updateStudentAction(
 ): Promise<StudentActionState> {
   const session = await getSession();
   if (!session) return { error: "Unauthorized" };
+  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")
+    return { error: "Only administrators can edit student records." };
 
   const raw = Object.fromEntries(formData.entries());
 
@@ -230,6 +232,8 @@ export async function updateStudentStatusAction(
 ): Promise<StudentActionState> {
   const session = await getSession();
   if (!session) return { error: "Unauthorized" };
+  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")
+    return { error: "Only administrators can change student status." };
 
   try {
     const student = await db.student.update({
@@ -271,6 +275,8 @@ export async function deleteStudentAction(
 ): Promise<StudentActionState> {
   const session = await getSession();
   if (!session) return { error: "Unauthorized" };
+  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")
+    return { error: "Only administrators can delete students." };
 
   try {
     const student = await db.student.findUnique({

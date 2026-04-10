@@ -128,7 +128,7 @@ export default async function StudentDetailPage({
         student={serialized}
         availableParents={availableParents}
         isAdmin={isAdmin}
-        readOnly={session?.role === "PARENT"}
+        readOnly={!isAdmin}
       />
     </div>
   );
