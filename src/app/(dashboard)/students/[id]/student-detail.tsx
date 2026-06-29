@@ -35,6 +35,7 @@ import {
   Users,
   UserPlus,
   X,
+  GitBranch,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -118,6 +119,13 @@ interface StudentDetailProps {
   availableParents: { id: string; fullName: string; email: string }[];
   isAdmin: boolean;
   readOnly?: boolean;
+  programSelections?: {
+    id: string;
+    status: string;
+    notes: string | null;
+    createdAt: Date;
+    requestedProgram: { name: string };
+  }[];
 }
 
 function InfoRow({
@@ -145,10 +153,14 @@ export function StudentDetail({
   availableParents,
   isAdmin,
   readOnly,
+  programSelections,
 }: StudentDetailProps) {
   const fullName = student.user.fullName;
   const [selectedParentId, setSelectedParentId] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  const isFoundationYear = student.program?.code === "FOUND-Y1";
+  const latestSelection = programSelections?.[0] ?? null;
 
   const totalBilled = student.studentFees.reduce(
     (sum, f) => sum + Number(f.amountCharged),
@@ -175,7 +187,7 @@ export function StudentDetail({
             </AvatarFallback>
           </Avatar>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold">{fullName}</h1>
               <Badge
                 variant="secondary"
@@ -183,10 +195,34 @@ export function StudentDetail({
               >
                 {student.status}
               </Badge>
+              {isFoundationYear && (
+                <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                  <GitBranch className="mr-1 h-3 w-3" />
+                  Foundation Year
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
               {student.studentIdNumber} ·{" "}
               {student.program?.name ?? "No program assigned"}
+              {latestSelection && (
+                <span className="ml-2">
+                  · Selection:{" "}
+                  <span className={
+                    latestSelection.status === "APPROVED"
+                      ? "text-green-600 dark:text-green-400"
+                      : latestSelection.status === "REJECTED"
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-yellow-600 dark:text-yellow-400"
+                  }>
+                    {latestSelection.status === "APPROVED"
+                      ? `${latestSelection.requestedProgram.name} (Approved)`
+                      : latestSelection.status === "REJECTED"
+                        ? `${latestSelection.requestedProgram.name} (Rejected)`
+                        : `${latestSelection.requestedProgram.name} (Pending)`}
+                  </span>
+                </span>
+              )}
             </p>
           </div>
         </div>

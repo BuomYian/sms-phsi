@@ -50,6 +50,7 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
     "STUDENT",
     "PARENT",
   ],
+  "/program-selection": ["SUPER_ADMIN", "ADMIN", "STUDENT"],
   "/reports": ["SUPER_ADMIN", "ADMIN", "FINANCE"],
   "/settings": ["SUPER_ADMIN", "ADMIN"],
 };

@@ -25,8 +25,21 @@ export function formatRelativeTime(date: Date | string): string {
   return formatDistanceToNow(new Date(date), { addSuffix: true });
 }
 
-export function generateStudentId(year: number, sequence: number): string {
-  return `PHSI-${year}-${String(sequence).padStart(4, "0")}`;
+// Maps Prisma program codes to the 2-letter admission abbreviation
+export const PROGRAM_ADMISSION_CODES: Record<string, string> = {
+  "DIP-NUR": "RN",
+  "DIP-MID": "RM",
+  "FOUND-Y1": "FY",
+};
+
+export function generateStudentId(
+  programCode: string,
+  year: number,
+  sequence: number,
+): string {
+  const admissionCode = PROGRAM_ADMISSION_CODES[programCode] ?? programCode;
+  const shortYear = String(year).slice(-2);
+  return `PHSI/${admissionCode}/${shortYear}/${String(sequence).padStart(3, "0")}`;
 }
 
 export function generateStaffId(sequence: number): string {

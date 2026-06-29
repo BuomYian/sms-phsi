@@ -264,6 +264,13 @@ export const academicSettingsSchema = z.object({
   examWeight: z.coerce.number().min(0).max(100),
 });
 
+export const programSelectionSchema = z.object({
+  requestedProgramId: z.string().uuid("Please select a program"),
+  notes: z.string().max(500).optional(),
+});
+
+export type ProgramSelectionInput = z.infer<typeof programSelectionSchema>;
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateStudentInput = z.infer<typeof createStudentSchema>;
 export type CreateStaffInput = z.infer<typeof createStaffSchema>;

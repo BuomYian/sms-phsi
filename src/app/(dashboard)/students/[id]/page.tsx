@@ -71,6 +71,11 @@ export default async function StudentDetailPage({
           },
         },
       },
+      programSelections: {
+        include: { requestedProgram: true },
+        orderBy: { createdAt: "desc" as const },
+        take: 1,
+      },
     },
   });
 
@@ -120,6 +125,7 @@ export default async function StudentDetailPage({
       id: pl.id,
       parent: pl.parent,
     })),
+    programSelections: student.programSelections,
   };
 
   return (
@@ -129,6 +135,7 @@ export default async function StudentDetailPage({
         availableParents={availableParents}
         isAdmin={isAdmin}
         readOnly={!isAdmin}
+        programSelections={serialized.programSelections}
       />
     </div>
   );

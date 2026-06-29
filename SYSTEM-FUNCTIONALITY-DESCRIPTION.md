@@ -6,8 +6,8 @@
 
 ---
 
-**Document Version:** 1.0  
-**Date:** March 24, 2026  
+**Document Version:** 2.0  
+**Date:** April 10, 2026  
 **Prepared For:** Presbyterian Health Science Institute  
 **Location:** Juba, South Sudan  
 **System URL:** https://sms-phsi.vercel.app
@@ -34,11 +34,11 @@ The Presbyterian Health Science Institute School Management System (PHSI-SMS) is
 
 - **Centralized Data Management:** All institutional data stored securely in one place
 - **Real-Time Access:** Stakeholders can access information 24/7 from any device
-- **Improved Efficiency:** Automated processes reduce administrative workload by up to 70%
+- **Improved Efficiency:** Automated processes reduce administrative workload
 - **Enhanced Communication:** Built-in messaging and announcement systems
 - **Accurate Reporting:** Generate instant reports for decision-making
 - **Financial Transparency:** Complete fee tracking and payment management
-- **Mobile-Friendly:** Optimized for low-bandwidth environments common in South Sudan
+- **Mobile-Friendly:** Responsive design optimized for all screen sizes
 
 ---
 
@@ -48,20 +48,19 @@ The Presbyterian Health Science Institute School Management System (PHSI-SMS) is
 
 The PHSI-SMS is built using modern, enterprise-grade technologies:
 
-| Component    | Technology                                  |
-| ------------ | ------------------------------------------- |
-| Frontend     | Next.js 16, React 19, TypeScript            |
-| UI Framework | Tailwind CSS, shadcn/ui                     |
-| Database     | PostgreSQL (Cloud-hosted)                   |
-| Hosting      | Vercel Edge Network                         |
-| Security     | SSL/TLS Encryption, bcrypt password hashing |
+| Component    | Technology                                       |
+| ------------ | ------------------------------------------------ |
+| Frontend     | Next.js 16 (Turbopack), React 19, TypeScript     |
+| UI Framework | Tailwind CSS, shadcn/ui                          |
+| Database     | PostgreSQL (Supabase, Cloud-hosted)              |
+| Hosting      | Vercel Edge Network                              |
+| Security     | SSL/TLS Encryption, bcrypt password hashing, JWT |
 
 ### 2.2 Accessibility
 
 - **Web Access:** https://sms-phsi.vercel.app
 - **Supported Browsers:** Chrome, Firefox, Safari, Edge (latest versions)
 - **Devices:** Desktop, Laptop, Tablet, Mobile Phone
-- **Internet:** Optimized for low-bandwidth connections
 
 ---
 
@@ -74,66 +73,78 @@ The system implements Role-Based Access Control (RBAC) with six distinct user ro
 **Full system access with complete control over all modules**
 
 - Manage all user accounts and permissions
-- Configure system-wide settings
+- Configure system-wide settings (institution profile, academic settings, fee settings)
 - Access all reports and analytics
-- Manage institution profile and branding
-- Perform data backups and exports
 - View complete audit logs
+- All Administrator capabilities
 
 ### 3.2 Administrator / Registrar
 
 **Manages student records, enrollment, and academic operations**
 
 - Student registration and profile management
+- Student import via CSV
 - Enrollment and registration approvals
-- Academic calendar management
-- Program and course management
-- Generate academic reports
+- Academic calendar management (academic years and semesters)
+- Program, department, subject, and class management
+- Create and manage timetable entries with conflict detection
+- Attendance viewing across all subjects
+- Grade review and approval
+- Generate academic transcripts (PDF with institutional branding)
+- Create and manage exam schedules
+- Staff registration and management
 - Manage announcements
+- Access reports (student, staff, academic, financial, attendance)
+- Record payments and manage fee structures
+- Manage scholarships
 
 ### 3.3 Finance Officer
 
 **Handles all financial operations and reporting**
 
-- Configure fee structures
-- Record and track payments
-- Generate payment receipts
+- Configure fee structures by program, academic year, and semester
+- Record and track payments (Cash, Bank Transfer, Mobile Money)
+- Auto-generate receipt numbers
 - Manage scholarships and discounts
+- View student financial accounts and balances
 - Produce financial reports
-- Monitor outstanding balances
-- Daily/weekly/monthly collection reports
+- View announcements and send/receive messages
+- Access financial reports
 
 ### 3.4 Instructor / Lecturer
 
 **Manages classes, attendance, and student assessments**
 
-- View assigned courses and timetables
-- Record student attendance
-- Enter and submit grades
-- Upload course materials
-- Communicate with students
+- View assigned subjects and personal timetable
+- View students in programs they teach (grouped by department and year)
+- Record student attendance (Present, Absent, Late, Excused)
+- Enter and submit grades (CA marks + Exam marks)
 - View class performance statistics
+- View academic calendar and exam schedules
+- Send and receive messages
+- View announcements
 
 ### 3.5 Student
 
 **Access personal academic and financial information**
 
-- View personal profile and enrollment status
-- Access class timetable
-- Check grades and academic transcript
-- View fee balance and payment history
-- Receive announcements and messages
-- Register for courses (when enabled)
+- View personal profile and update contact details
+- View class timetable
+- Check grades and academic results (My Results)
+- View fee balance and payment history (My Fees)
+- Receive announcements
+- Send and receive messages
+- Change password and manage security question
 
 ### 3.6 Parent / Guardian
 
 **Monitor linked student(s) progress**
 
-- View linked student(s) profiles
-- Monitor attendance records
-- Check academic performance and grades
-- View fee balance and payments
-- Receive important announcements
+- View linked student(s) profiles (name, ID, program, status, enrollment status)
+- View linked student(s) fee summaries
+- View academic calendar
+- Receive announcements
+- Send and receive messages
 
 ---
 
@@ -147,34 +158,48 @@ Each user role has a personalized dashboard displaying relevant information at a
 
 - Total students counter (active, graduated, suspended, withdrawn)
 - Staff/lecturer count
-- Revenue overview (collected vs. outstanding)
-- Enrollment trends chart
+- Program and department counts
+- Revenue overview (total billed, collected, outstanding)
+- Enrollment workflow (pending, approved counts)
+- Academic calendar display
 - Recent activity feed
-- Quick action buttons
+- Attendance rate overview
+- Latest announcements
 
 **Finance Dashboard Features:**
 
-- Revenue collection summary (pie/donut chart)
-- Outstanding fees alerts
-- Recent payments table
-- Revenue by program breakdown
-- Payment trends analysis
+- Total billed summary
+- Total collected
+- Pending payments count
+- Unpaid students count
+- Recent payments table with receipt numbers
+- Latest announcements
 
 **Instructor Dashboard Features:**
 
-- Today's class schedule
-- Assigned courses list
-- Attendance summary per course
+- Assigned subjects count
+- Upcoming classes display
+- Personal timetable
+- Attendance marked count
 - Pending grade submissions
-- Quick links to take attendance and enter grades
+- Latest announcements
 
 **Student Dashboard Features:**
 
-- Enrollment status card
-- Current semester courses
+- Enrollment count
+- Average score display
+- Fee summary (total fees, paid, balance)
+- Unpaid fees count
 - Personal timetable
-- GPA/CGPA display
-- Fee balance summary
+- Attendance rates
+- Academic calendar
+- Latest announcements
+
+**Parent Dashboard Features:**
+
+- Children cards (name, student ID, program, status, enrollment status)
+- Fee summary per child
+- Academic calendar
 - Latest announcements
 
 ---
@@ -182,65 +207,68 @@ Each user role has a personalized dashboard displaying relevant information at a
 ### 4.2 Student Management Module
 
 **Student Registration**
-Comprehensive multi-step registration form capturing:
+Comprehensive registration form capturing:
 
-- **Personal Information:** Full name, date of birth, gender, nationality, national ID/passport, photo, contact details, physical address, state/county
-- **Guardian/Next-of-Kin:** Name, relationship, phone, email, address
-- **Academic Background:** Previous education, qualifications, admission type
-- **Medical Information:** Blood type, allergies, disabilities, emergency contact
-- **Document Uploads:** National ID, transcripts, medical certificate, photos
+- **Personal Information:** First name, middle name, last name, date of birth, gender, nationality, national ID, email, phone, address, state/county
+- **Academic Information:** Program selection, admission date, admission type (Regular, Transfer, Mature Entry)
+- **Previous Education:** Previous school, qualification, graduation year
+- **Guardian/Next-of-Kin:** Name, phone, email, relationship (Father/Mother/Guardian/Sibling/Spouse/Other), address
+- **Emergency Contact:** Name and phone
+- **Medical Information:** Blood group, allergies, medical conditions, disabilities
 
 **Student Profile Management**
 
-- Complete student records with tabbed interface
-- Personal, Academic, Financial, Medical, and Documents tabs
+- Complete student records with tabbed interface (Personal, Academic, Financial, Parent Links)
 - Status management (Active, Suspended, Withdrawn, Graduated, Deferred)
-- Status change history with reasons logged
+- Link and unlink parent accounts
+- Admin-only edit and delete access (instructors have view-only access)
 
 **Student Directory**
 
 - Searchable and filterable data table
 - Auto-generated Student ID (e.g., PHSI-2025-0001)
 - Column sorting and pagination
-- Export to CSV and PDF
-- Bulk import via CSV template
+- Instructor view: students grouped by department and year level
+- Bulk import via CSV (fullName, email, gender, dateOfBirth, phone)
 
 ---
 
 ### 4.3 Academic / Program Management Module
 
 **Programs of Study**
-Complete management of academic programs offered:
+Management of academic programs currently offered:
 
-| Program                              | Duration |
-| ------------------------------------ | -------- |
-| Diploma in Nursing                   | 3 Years  |
-| Certificate in Midwifery             | 2 Years  |
-| Diploma in Clinical Medicine         | 3 Years  |
-| Diploma in Public Health             | 3 Years  |
-| Certificate in Pharmacy              | 2 Years  |
-| Certificate in Laboratory Technology | 2 Years  |
+| Program              | Duration              |
+| -------------------- | --------------------- |
+| Diploma in Nursing   | 3 Years (6 semesters) |
+| Diploma in Midwifery | 3 Years (6 semesters) |
+
+_Programs can be added, edited, activated, or deactivated by administrators._
 
 **Subject/Course Unit Management**
 
 - Subject name, code, and credit hours
 - Program and semester assignment
 - Core/Elective classification
-- Instructor assignment
+- Instructor assignment (per academic year and semester)
 - Prerequisite configuration
+
+**Department Management**
+
+- Department name and code
+- Head of Department assignment
+- Department staff listing
 
 **Academic Calendar**
 
-- Academic year and semester definitions
-- Key dates management (registration, exams, holidays, graduation)
-- Visual calendar display
-- Current active semester indicator
+- Academic year definitions (name, start/end dates, current year flag)
+- Semester definitions per academic year (name, start/end dates, current semester flag)
 
-**Curriculum Mapping**
+**Class Management**
 
-- Subject-to-semester mapping per program
-- Prerequisite chain configuration
-- Credit hour totals per semester
+- Class cohorts linked to a specific program, academic year, and year level
+- Enroll students into classes
+- Auto-assignment of matching fee structures when students are enrolled in a class
 
 ---
 
@@ -248,23 +276,15 @@ Complete management of academic programs offered:
 
 **Semester Registration**
 
-- Students register for each academic term
+- Students are enrolled for each academic semester
 - Admin approval workflow
-- Registration statuses: Pending, Approved, Rejected, Conditionally Approved
-- Fee payment verification option
+- Enrollment statuses: Pending, Approved, Rejected, Conditionally Approved
+- Linked to specific class sections
 
 **Course Enrollment**
 
-- Students enroll in specific subjects
-- Prerequisite enforcement
-- Credit hour limit validation
-- Enrollment confirmation
-
-**Enrollment Reports**
-
-- Enrollment by program, semester, gender, year
-- Visual charts and data tables
-- Exportable reports
+- Students are enrolled in specific subjects per enrollment
+- Enrollment prerequisites enforced
 
 ---
 
@@ -272,16 +292,17 @@ Complete management of academic programs offered:
 
 **Class Schedule Management**
 
-- Create timetable entries (subject, instructor, day, time, room)
-- Automatic conflict detection
-- Instructor and room double-booking prevention
+- Create timetable entries (subject, instructor, semester, day, start time, end time, room)
+- Days: Monday through Saturday
+- Automatic conflict detection (instructor and room double-booking prevention)
 
 **Timetable Views**
 
-- By Program/Class (weekly grid view)
-- By Instructor (personal schedule)
-- By Room/Venue
-- Student personal timetable (auto-generated)
+- Weekly grid view and list view
+- Filter by semester
+- Admin: filter by class
+- Instructor: personal schedule
+- Student: personal timetable (auto-generated based on enrolled subjects)
 
 ---
 
@@ -289,23 +310,22 @@ Complete management of academic programs offered:
 
 **Attendance Taking**
 
-- Select course and date
+- Select subject and date
 - Mark students: Present, Absent, Late, Excused
-- Bulk marking option (mark all present, then adjust)
-- Submit and lock attendance records
+- Records who marked the attendance
 
 **Attendance Tracking**
 
-- View history by student, course, or date range
-- Automatic percentage calculation
-- Threshold alerts (e.g., below 75%)
-- Student and admin notifications
+- View history by student, subject, or date
+- Automatic attendance percentage calculation
+- Default threshold: 75%
+- Accessible by administrators and instructors
 
 **Attendance Reports**
 
-- Summary by course and program
-- Individual student attendance records
-- Export to PDF and CSV
+- Summary by subject and program
+- Low attendance flags
+- Exportable via reports module
 
 ---
 
@@ -313,42 +333,44 @@ Complete management of academic programs offered:
 
 **Grade Entry**
 
-- Continuous Assessment (CA) marks entry
-- Examination marks entry
-- Configurable weighting (default: CA 40%, Exam 60%)
-- Automatic total and grade letter calculation
+- Continuous Assessment (CA) marks entry (weight: 40%)
+- Examination marks entry (weight: 60%)
+- Automatic total marks calculation
+- Automatic grade letter and GPA points assignment
 
 **Grading Scale**
-| Grade | Percentage | Grade Points |
-|-------|------------|--------------|
-| A | 70-100 | 5.0 |
-| B+ | 65-69 | 4.5 |
-| B | 60-64 | 4.0 |
-| C+ | 55-59 | 3.5 |
-| C | 50-54 | 3.0 |
-| D | 45-49 | 2.0 |
-| F | Below 45 | 0.0 |
+
+| Grade | Percentage | GPA Points | Description   |
+| ----- | ---------- | ---------- | ------------- |
+| A     | 70–100     | 4.0        | Excellent     |
+| B+    | 65–69      | 3.5        | Very Good     |
+| B     | 60–64      | 3.0        | Good          |
+| C+    | 55–59      | 2.5        | Fairly Good   |
+| C     | 50–54      | 2.0        | Average       |
+| D     | 45–49      | 1.5        | Below Average |
+| F     | Below 45   | 0.0        | Fail          |
 
 **Grade Approval Workflow**
 
-1. Instructor enters and submits grades (Draft → Submitted)
-2. Head of Department reviews (Submitted → Approved)
-3. Registrar publishes (Approved → Published)
-4. Students can view published grades
+1. Instructor enters grades → status: **Draft**
+2. Instructor submits grades → status: **Submitted**
+3. Administrator reviews and approves → status: **Approved**
+4. Students can view approved grades in "My Results"
 
 **Academic Transcripts**
 
-- Auto-generated official transcripts
-- All semesters with courses, grades, and credits
-- GPA per semester and CGPA
-- School letterhead and branding
-- Downloadable PDF format
+- Admin-only transcript generation
+- All semesters with courses, grades, credits, CA marks, exam marks, total marks
+- GPA per semester and cumulative GPA (CGPA)
+- Institutional header with PHSI logo (left) and PRDA logo (right)
+- Downloadable PDF with watermark, verification hash, and document reference
+- Grading scale included on transcript
 
-**Examination Management**
+**Examination Schedule Management**
 
-- Exam timetable creation
-- Venue and duration assignment
-- Published exam schedule for students
+- Create exam schedules per subject, semester, and class
+- Assign date, time, venue, and duration
+- Published exam schedule viewable by students and instructors
 
 ---
 
@@ -366,14 +388,16 @@ Complete management of academic programs offered:
   - Examination Fee
   - ID Card Fee
   - Other Fees
+- Supported currencies: SSP and USD
+- Auto-assignment: When students are enrolled in a class, matching fee structures are automatically assigned (with scholarship discounts applied)
 
 **Student Financial Accounts**
 
-- Individual student ledgers
+- Individual student fee ledgers
 - Total fees charged
 - Payments made
 - Outstanding balance
-- Overpayments/Credits
+- Per-fee-structure breakdown
 
 **Payment Recording**
 
@@ -383,29 +407,23 @@ Complete management of academic programs offered:
   - Reference/Receipt number
   - Payment date
   - Recorded by (staff member)
-- Auto-generate printable receipts
+- Auto-generated receipt numbers
 
 **Scholarships & Discounts**
 
 - Scholarship type and sponsor
 - Amount or percentage discount
-- Validity period
-- Auto-deduction from fees
+- Start and end date validity
+- Linked to individual students
+- Auto-deduction when fee structures are assigned
 
 **Financial Reports**
 
-- Total revenue collected by period
-- Revenue by program and fee category
-- Outstanding fees report (students with balances)
-- Payment history report
-- Daily/weekly/monthly collection summaries
-- Export to PDF and CSV
-
-**Fee Enforcement**
-
-- Configurable registration block for unpaid fees
-- Outstanding balance alerts
-- Fee reminder system
+- Revenue collection summary
+- Revenue by program
+- Outstanding fees report
+- Payment history
+- Export via reports module
 
 ---
 
@@ -413,24 +431,23 @@ Complete management of academic programs offered:
 
 **Staff Registration**
 
-- Personal information (name, gender, DOB, nationality, ID, contact)
-- Employment details (Staff ID, designation, department, employment type)
+- Personal information (full name, gender, DOB, nationality, national ID, phone, email, address)
+- Employment details (auto-generated Staff ID, designation, department, employment type: Full-Time / Part-Time / Contract)
 - Date of hire and salary information
-- Qualifications and certifications
-- Document uploads (CV, certificates, contract)
+- Qualifications
+- Option to convert existing system users to staff records
 
 **Staff Directory**
 
 - Searchable staff list
-- Filter by department, role, status
-- Contact information access
-- Quick profile view
+- Filter and sort capabilities
+- Admin-only access
 
 **Department Management**
 
 - Create and manage departments
 - Assign Head of Department
-- Department staff listing
+- View department staff
 
 ---
 
@@ -439,24 +456,25 @@ Complete management of academic programs offered:
 **Announcements**
 
 - Create announcements with:
-  - Title and rich text body
-  - Target audience (All, specific programs, specific years, staff only)
-  - Attachments
-  - Publish and expiry dates
-- Displayed on user dashboards
+  - Title and body text
+  - Target audience (All Users, Students, Instructors, Staff, Parents)
+  - Optional program-specific targeting
+  - Publish date and expiry date
+  - Attachments support
+- Read tracking per user (who has read which announcement)
+- Displayed on all user dashboards
+- Accessible by all roles
 
 **Internal Messaging**
 
-- Admin to students messaging
-- Instructor to class messaging
-- Inbox and sent messages
-- Read/unread status
-
-**Notification System**
-
-- In-app notifications
-- Email notifications (configurable)
-- SMS integration ready (future enhancement)
+- Send messages to any system user
+- Subject and body fields
+- Inbox and Sent views
+- Read/unread status tracking
+- Unread count badge in sidebar
+- Search functionality (search messages by content)
+- Broadcast messaging (admin can send to multiple recipients)
+- Available to all roles including parents
 
 ---
 
@@ -464,55 +482,85 @@ Complete management of academic programs offered:
 
 **Pre-Built Reports**
 
-| Report Category    | Reports Available                                         |
-| ------------------ | --------------------------------------------------------- |
-| Student Reports    | Enrollment statistics, Student directory, Status summary  |
-| Academic Reports   | Performance analysis, Pass/fail rates, Grade distribution |
-| Financial Reports  | Revenue summary, Outstanding fees, Collection reports     |
-| Attendance Reports | Attendance summary, Low attendance alerts                 |
-| Staff Reports      | Staff directory, Department summary                       |
+| Report Category    | Reports Available                                        |
+| ------------------ | -------------------------------------------------------- |
+| Student Reports    | Enrollment statistics, demographics, status distribution |
+| Academic Reports   | Performance analysis, pass rates, grade distribution     |
+| Financial Reports  | Revenue collection, outstanding fees, payment trends     |
+| Attendance Reports | Attendance trends, rates, low-attendance flags           |
+| Staff Reports      | Staff directory, department distribution, roles          |
+| Summary Dashboard  | High-level institutional KPIs and charts                 |
 
 **Report Features**
 
-- Filter by academic year, semester, program, department, date range
 - Visual charts (bar, line, pie/donut)
 - Data tables with sorting and search
-- Export to PDF and CSV
+- Export to CSV via API (`/api/reports/export`)
+- Accessible by Super Admin, Admin, and Finance roles
 
 ---
 
 ### 4.12 Settings & Configuration Module
 
-**Institution Profile**
+**Institution Profile** _(Super Admin only)_
 
 - School name, address, contact information
 - Logo and branding
-- Mission, vision, and motto
 
 **Academic Settings**
 
-- Current academic year and semester
 - Grading scale configuration
 - Attendance threshold percentage
 - Maximum credit hours per semester
+- CA/Exam weight configuration
 
 **Fee Settings**
 
 - Currency configuration (SSP/USD)
-- Payment deadline settings
-- Registration block toggle
+- Payment method settings
 
 **User Management**
 
-- Create, edit, and delete user accounts
-- Role assignment
+- Create, edit, and deactivate user accounts
+- Role assignment (Super Admin, Admin, Finance, Instructor, Student, Parent)
 - Account activation/deactivation
-- Password reset
+- Default security question assigned on account creation
 
-**System Settings**
+**Audit Log**
 
-- Backup and data export
-- Audit log viewing
+- Complete audit trail of all user actions
+- Logged: User, action type, entity type, entity ID, details, IP address, timestamp
+- Searchable and filterable
+- Exportable
+
+---
+
+### 4.13 Profile & Account Module
+
+All users can manage their own profile:
+
+- View and update personal details (full name, phone)
+- View role and account information (email, role, creation date)
+- Role-specific details: Students see student ID, program, year; Staff see staff ID, designation, department
+- **Change Password:** Update login password
+- **Security Question:** Set or update a personal security question and answer for self-service password recovery
+
+---
+
+### 4.14 Authentication Module
+
+**Login**
+
+- Secure email and password login
+- Account lockout after failed attempts
+
+**Self-Service Password Reset**
+
+- Step 1: Enter email address
+- Step 2: Answer security question
+- Step 3: Set new password
+- All accounts are created with a default security question ("What is the name of this institution?")
+- Users can customize their security question from their profile
 
 ---
 
@@ -521,23 +569,24 @@ Complete management of academic programs offered:
 ### 5.1 Performance
 
 - **Page Load Time:** < 3 seconds on standard connection
-- **Optimized:** Low-bandwidth environments
-- **Concurrent Users:** Supports 500+ simultaneous users
-- **Uptime:** 99.9% availability guarantee
+- **Rendering:** Server-side rendering with Turbopack for fast builds
+- **Rate Limiting:** Built-in rate limiting on sensitive actions (login, password reset)
 
 ### 5.2 Data Storage
 
-- **Database:** PostgreSQL (cloud-hosted)
-- **File Storage:** Secure cloud storage for documents
-- **Backup:** Daily automated backups
-- **Retention:** 7-year data retention capability
+- **Database:** PostgreSQL (Supabase cloud-hosted)
+- **ORM:** Prisma 6.19
+- **Schema:** 30+ data models covering all institutional operations
 
-### 5.3 Integrations Ready
+### 5.3 API Endpoints
 
-- SMS Gateway (Africa's Talking compatible)
-- Email Service (SMTP)
-- Mobile Money APIs (M-Pesa, MTN Mobile Money)
-- Export formats (PDF, CSV, Excel)
+- `/api/attendance/students` — Attendance data query
+- `/api/messages/unread-count` — Unread message count
+- `/api/reports/export` — CSV export (students, staff, academic, financial, attendance)
+- `/api/programs` — Program listing
+- `/api/instructors` — Instructor lookup
+- `/api/transcripts/[studentId]` — PDF transcript generation
+- `/api/users-without-staff` — Users available for staff conversion
 
 ---
 
@@ -546,32 +595,26 @@ Complete management of academic programs offered:
 ### 6.1 Authentication & Authorization
 
 - Secure login with email/password
-- Password hashing (bcrypt algorithm)
-- HTTP-only secure session cookies
-- Role-based access control (RBAC)
-- Session timeout and auto-logout
+- Password hashing (bcrypt algorithm, 12 salt rounds)
+- JWT-based sessions (HS256) with HTTP-only secure cookies
+- Role-based access control (RBAC) enforced at middleware, page, and action levels
+- Session refresh mechanism
+- Account lockout after repeated failed login attempts
+- Self-service password reset via security questions
 
 ### 6.2 Data Protection
 
 - SSL/TLS encryption for all data in transit
-- Encrypted data at rest
-- SQL injection prevention
-- Input validation and sanitization
+- SQL injection prevention (Prisma parameterized queries)
+- Input validation and sanitization (Zod schema validation)
 - XSS attack prevention
+- Rate limiting on sensitive endpoints
 
 ### 6.3 Audit & Compliance
 
-- Complete audit trail logging
-- User action tracking (who, what, when)
-- IP address logging
-- Data export for compliance reporting
-
-### 6.4 Backup & Recovery
-
-- Daily automated backups
-- Point-in-time recovery capability
-- Disaster recovery procedures
-- Data export functionality
+- Complete audit trail logging for all data modifications
+- User action tracking (who, what, when, IP address)
+- Audit log search and export capabilities
 
 ---
 
@@ -617,8 +660,8 @@ Complete management of academic programs offered:
 ## Contact Information
 
 **Developer:** Allela Ventures Ltd  
-**Email:** info@allelaventures.com
-**Phone:** +211 927 654 174
+**Email:** info@allelaventures.com  
+**Phone:** +211 927 654 174  
 **Website:** https://allelaventures.com
 
 ---

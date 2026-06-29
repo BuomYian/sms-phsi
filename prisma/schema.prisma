@@ -96,6 +96,12 @@ enum ClassStudentStatus {
   WITHDRAWN
 }
 
+enum ProgramSelectionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // ===========================
 // USER & AUTH
 // ===========================
@@ -129,6 +135,7 @@ model User {
   enrollmentsApproved Enrollment[]    @relation("EnrollmentApprover")
   parentLinks      ParentStudent[]    @relation("ParentUser")
   announcementReads AnnouncementRead[]
+  programSelectionsReviewed ProgramSelection[] @relation("ProgramSelectionReviewer")
 
   @@map("users")
 }
@@ -177,6 +184,7 @@ model Student {
   scholarships      Scholarship[]
   documents         Document[]
   parentLinks       ParentStudent[] @relation("StudentChild")
+  programSelections ProgramSelection[]
 
   @@map("students")
 }
@@ -262,6 +270,7 @@ model Program {
   classes           AcademicClass[]
   feeStructures     FeeStructure[]
   announcements     Announcement[]
+  programSelections ProgramSelection[] @relation("ProgramSelectionTarget")
 
   @@map("programs")
 }
@@ -390,6 +399,28 @@ model ClassStudent {
 
   @@unique([classId, studentId])
   @@map("class_students")
+}
+
+// ===========================
+// PROGRAM SELECTION
+// ===========================
+
+model ProgramSelection {
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId          String                 @map("student_id") @db.Uuid
+  requestedProgramId String                 @map("requested_program_id") @db.Uuid
+  status             ProgramSelectionStatus @default(PENDING)
+  notes              String?
+  reviewedBy         String?                @map("reviewed_by") @db.Uuid
+  reviewedAt         DateTime?              @map("reviewed_at")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  requestedProgram Program  @relation("ProgramSelectionTarget", fields: [requestedProgramId], references: [id])
+  reviewer         User?    @relation("ProgramSelectionReviewer", fields: [reviewedBy], references: [id])
+
+  @@map("program_selections")
 }
 
 // ===========================

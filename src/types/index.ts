@@ -75,6 +75,12 @@ export enum AdmissionType {
   MATURE_ENTRY = "MATURE_ENTRY",
 }
 
+export enum ProgramSelectionStatus {
+  PENDING = "PENDING",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+}
+
 export interface SessionUser {
   id: string;
   email: string;

@@ -19,7 +19,7 @@ async function main() {
   // Delete programs that have no students and are NOT Nursing or Midwifery
   await prisma.program.deleteMany({
     where: {
-      code: { notIn: ["DIP-NUR", "DIP-MID"] },
+      code: { notIn: ["DIP-NUR", "DIP-MID", "FOUND-Y1"] },
       students: { none: {} },
     },
   });
@@ -112,7 +112,32 @@ async function main() {
     }),
   ]);
 
-  console.log(`✅ Created ${programs.length} programs`);
+  const [administration] = departments.filter((d) => d.name === "Administration");
+
+  await prisma.program.upsert({
+    where: { code: "FOUND-Y1" },
+    update: {
+      name: "Foundation Year",
+      durationSemesters: 2,
+      totalCredits: 0,
+      departmentId: administration.id,
+      description:
+        "Common first-year program for all incoming students. All students — regardless of their eventual specialisation — study a shared curriculum in Year 1 before choosing between Nursing and Midwifery.",
+      isActive: true,
+    },
+    create: {
+      name: "Foundation Year",
+      code: "FOUND-Y1",
+      durationSemesters: 2,
+      totalCredits: 0,
+      departmentId: administration.id,
+      description:
+        "Common first-year program for all incoming students. All students — regardless of their eventual specialisation — study a shared curriculum in Year 1 before choosing between Nursing and Midwifery.",
+      isActive: true,
+    },
+  });
+
+  console.log(`✅ Created ${programs.length} programs + Foundation Year`);
 
   const [nursingProgram, midwiferyProgram] = programs;
 

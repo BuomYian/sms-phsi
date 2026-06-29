@@ -198,6 +198,12 @@ export const NAV_ITEMS: NavItem[] = [
   //   roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.STUDENT],
   // },
   {
+    title: "Program Selection",
+    href: "/program-selection",
+    icon: "GitBranch",
+    roles: [Role.SUPER_ADMIN, Role.ADMIN, Role.STUDENT],
+  },
+  {
     title: "Timetable",
     href: "/timetable",
     icon: "Clock",

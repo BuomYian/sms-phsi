@@ -70,10 +70,25 @@ export async function createStudentAction(
       return { error: "A user with this email already exists." };
     }
 
-    // Generate student ID
-    const currentYear = new Date().getFullYear();
-    const studentCount = await db.student.count();
-    const studentIdNumber = generateStudentId(currentYear, studentCount + 1);
+    // Generate student ID: PHSI/{CODE}/{YY}/{sequence per program per year}
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const yearStart = new Date(`${currentYear}-01-01`);
+    const yearEnd = new Date(`${currentYear + 1}-01-01`);
+
+    const program = await db.program.findUnique({
+      where: { id: input.programId },
+      select: { code: true },
+    });
+    if (!program) return { error: "Selected program not found." };
+
+    const studentCount = await db.student.count({
+      where: {
+        programId: input.programId,
+        admissionDate: { gte: yearStart, lt: yearEnd },
+      },
+    });
+    const studentIdNumber = generateStudentId(program.code, currentYear, studentCount + 1);
 
     // Create user account + student profile in a transaction
     const result = await db.$transaction(async (tx) => {
@@ -334,7 +349,16 @@ export async function importStudentsAction(
 
   if (!rows.length) return { error: "No rows to import." };
 
-  const currentYear = new Date().getFullYear();
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const yearStart = new Date(`${currentYear}-01-01`);
+  const yearEnd = new Date(`${currentYear + 1}-01-01`);
+
+  const program = await db.program.findUnique({
+    where: { id: programId },
+    select: { code: true },
+  });
+  if (!program) return { error: "Selected program not found." };
 
   let imported = 0;
   const errors: string[] = [];
@@ -365,8 +389,13 @@ export async function importStudentsAction(
         continue;
       }
 
-      const studentCount = await db.student.count();
-      const studentIdNumber = generateStudentId(currentYear, studentCount + 1);
+      const studentCount = await db.student.count({
+        where: {
+          programId,
+          admissionDate: { gte: yearStart, lt: yearEnd },
+        },
+      });
+      const studentIdNumber = generateStudentId(program.code, currentYear, studentCount + 1 + imported);
       const passwordHash = await hashPassword(studentIdNumber);
 
       await db.$transaction(async (tx) => {
