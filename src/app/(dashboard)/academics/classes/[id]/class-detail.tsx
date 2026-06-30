@@ -44,7 +44,18 @@ import {
   Trash2,
   GraduationCap,
   Pencil,
+  PlusCircle,
+  CheckCircle2,
+  Clock,
+  History,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   enrollStudentsInClassAction,
@@ -52,6 +63,9 @@ import {
   promoteStudentsAction,
   deleteClassAction,
   updateClassAction,
+  addSubjectOfferingAction,
+  completeSubjectOfferingAction,
+  removeSubjectOfferingAction,
   type ClassActionState,
 } from "../actions";
 
@@ -74,7 +88,7 @@ interface ClassStudentItem {
   status: string;
 }
 
-interface SubjectItem {
+interface OfferingSubject {
   id: string;
   name: string;
   code: string;
@@ -84,23 +98,48 @@ interface SubjectItem {
   instructors: { name: string; semester: string }[];
 }
 
+interface OfferingItem {
+  id: string;
+  status: string;
+  semesterId: string;
+  semesterName: string;
+  subject: OfferingSubject;
+}
+
+interface AvailableSubject {
+  id: string;
+  name: string;
+  code: string;
+  creditHours: number;
+  semesterNumber: number;
+}
+
 interface AvailableStudent {
   id: string;
   studentIdNumber: string;
   fullName: string;
 }
 
+interface CalendarSemester {
+  id: string;
+  name: string;
+}
+
 interface ClassDetailProps {
   cls: ClassInfo;
   students: ClassStudentItem[];
-  subjects: SubjectItem[];
+  offerings: OfferingItem[];
+  availableSubjects: AvailableSubject[];
+  calendarSemesters: CalendarSemester[];
   availableStudents: AvailableStudent[];
 }
 
 export function ClassDetail({
   cls,
   students,
-  subjects,
+  offerings,
+  availableSubjects,
+  calendarSemesters,
   availableStudents,
 }: ClassDetailProps) {
   const router = useRouter();
@@ -135,6 +174,47 @@ export function ClassDetail({
   const [promoteStudents, setPromoteStudents] = useState<Set<string>>(
     new Set(),
   );
+
+  // Add subject offering dialog
+  const [addSubjectOpen, setAddSubjectOpen] = useState(false);
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [selectedSemesterId, setSelectedSemesterId] = useState(
+    calendarSemesters[0]?.id ?? "",
+  );
+
+  function handleAddOffering() {
+    if (!selectedSubjectId || !selectedSemesterId) return;
+    startTransition(async () => {
+      const result = await addSubjectOfferingAction(
+        cls.id,
+        selectedSubjectId,
+        selectedSemesterId,
+      );
+      if (result.success) {
+        toast.success(result.message);
+        setAddSubjectOpen(false);
+        setSelectedSubjectId("");
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  function handleCompleteOffering(offeringId: string) {
+    startTransition(async () => {
+      const result = await completeSubjectOfferingAction(offeringId, cls.id);
+      if (result.success) toast.success(result.message);
+      else toast.error(result.error);
+    });
+  }
+
+  function handleRemoveOffering(offeringId: string) {
+    startTransition(async () => {
+      const result = await removeSubjectOfferingAction(offeringId, cls.id);
+      if (result.success) toast.success(result.message);
+      else toast.error(result.error);
+    });
+  }
 
   const activeStudents = students.filter((s) => s.status === "ACTIVE");
 
@@ -210,21 +290,9 @@ export function ClassDetail({
     });
   }
 
-  // Group subjects by semester
-  const groupedSubjects: { semesterNumber: number; subjects: SubjectItem[] }[] =
-    [];
-  const semMap: Record<number, SubjectItem[]> = {};
-  for (const s of subjects) {
-    if (!semMap[s.semesterNumber]) semMap[s.semesterNumber] = [];
-    semMap[s.semesterNumber].push(s);
-  }
-  for (const [num, subs] of Object.entries(semMap).sort(
-    ([a], [b]) => Number(a) - Number(b),
-  )) {
-    groupedSubjects.push({ semesterNumber: Number(num), subjects: subs });
-  }
-
-  const totalCredits = subjects.reduce((sum, s) => sum + s.creditHours, 0);
+  const activeOfferings = offerings.filter((o) => o.status === "ACTIVE");
+  const completedOfferings = offerings.filter((o) => o.status === "COMPLETED");
+  const totalCredits = offerings.reduce((sum, o) => sum + o.subject.creditHours, 0);
 
   return (
     <>
@@ -404,8 +472,8 @@ export function ClassDetail({
           <CardContent className="flex items-center gap-3 pt-6">
             <BookOpen className="h-5 w-5 text-muted-foreground" />
             <div>
-              <p className="text-xs text-muted-foreground">Subjects</p>
-              <p className="text-lg font-bold">{subjects.length}</p>
+              <p className="text-xs text-muted-foreground">Subjects Offered</p>
+              <p className="text-lg font-bold">{offerings.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -593,89 +661,230 @@ export function ClassDetail({
         </CardContent>
       </Card>
 
-      {/* Subjects & Instructors */}
+      {/* Subject Offerings */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Subjects & Instructors ({subjects.length} subjects)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {groupedSubjects.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No subjects found for Year {cls.yearLevel}.
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Subject Offerings</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Only subjects added here are taught and appear on transcripts.
             </p>
-          ) : (
-            <div className="space-y-6">
-              {groupedSubjects.map((group) => (
-                <div key={group.semesterNumber}>
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-2">
-                    Semester {group.semesterNumber}
-                  </h3>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Code</TableHead>
-                        <TableHead>Subject</TableHead>
-                        <TableHead className="text-center">Credits</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Instructor(s)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {group.subjects.map((subject) => (
-                        <TableRow key={subject.id}>
-                          <TableCell className="font-mono text-sm">
-                            <Link
-                              href={`/academics/subjects/${subject.id}`}
-                              className="text-primary hover:underline"
-                            >
-                              {subject.code}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {subject.name}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {subject.creditHours}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                subject.type === "CORE"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                            >
-                              {subject.type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {subject.instructors.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {subject.instructors.map((inst, i) => (
-                                  <Badge
-                                    key={i}
-                                    variant="outline"
-                                    className="text-xs"
-                                  >
-                                    {inst.name}
-                                  </Badge>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">
-                                Not assigned
-                              </span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+          </div>
+          {availableSubjects.length > 0 && (
+            <Dialog open={addSubjectOpen} onOpenChange={setAddSubjectOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Subject
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Add Subject to Offerings</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-2">
+                    <Label>Semester</Label>
+                    <Select
+                      value={selectedSemesterId}
+                      onValueChange={setSelectedSemesterId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select semester" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {calendarSemesters.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Subject</Label>
+                    <Select
+                      value={selectedSubjectId}
+                      onValueChange={setSelectedSubjectId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select subject" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSubjects.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            <span className="font-mono text-xs mr-2 text-muted-foreground">
+                              {s.code}
+                            </span>
+                            {s.name}
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              ({s.creditHours} cr)
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    onClick={handleAddOffering}
+                    disabled={!selectedSubjectId || !selectedSemesterId || isPending}
+                    className="w-full"
+                  >
+                    {isPending ? "Adding..." : "Add to Offerings"}
+                  </Button>
                 </div>
-              ))}
+              </DialogContent>
+            </Dialog>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Active offerings */}
+          {activeOfferings.length > 0 && (
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-semibold mb-3">
+                <Clock className="h-4 w-4 text-blue-500" />
+                Currently Being Taught ({activeOfferings.length})
+              </h3>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead className="text-center">Credits</TableHead>
+                    <TableHead>Semester</TableHead>
+                    <TableHead>Instructor(s)</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {activeOfferings.map((o) => (
+                    <TableRow key={o.id}>
+                      <TableCell className="font-mono text-sm">
+                        <Link
+                          href={`/academics/subjects/${o.subject.id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {o.subject.code}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="font-medium">{o.subject.name}</TableCell>
+                      <TableCell className="text-center">{o.subject.creditHours}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{o.semesterName}</TableCell>
+                      <TableCell>
+                        {o.subject.instructors.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {o.subject.instructors.map((inst, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">
+                                {inst.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Not assigned</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm" className="h-7 text-xs text-green-700 border-green-300 hover:bg-green-50">
+                                <CheckCircle2 className="mr-1 h-3 w-3" />
+                                Mark Taught
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Mark as Taught?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This records that <strong>{o.subject.name}</strong> has been fully taught. This cannot be undone and the subject will not appear as an option in future offerings for this class.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleCompleteOffering(o.id)}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  Confirm
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Remove Offering?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Remove <strong>{o.subject.name}</strong> from this semester&apos;s offerings? This also removes all student enrollments for this subject. Only possible if no grades have been entered.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleRemoveOffering(o.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Remove
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
+          )}
+
+          {/* Completed offerings */}
+          {completedOfferings.length > 0 && (
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-semibold mb-3 text-muted-foreground">
+                <History className="h-4 w-4" />
+                Already Taught — Historical Record ({completedOfferings.length})
+              </h3>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead className="text-center">Credits</TableHead>
+                    <TableHead>Semester Taught</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {completedOfferings.map((o) => (
+                    <TableRow key={o.id} className="opacity-70">
+                      <TableCell className="font-mono text-sm">{o.subject.code}</TableCell>
+                      <TableCell className="font-medium">{o.subject.name}</TableCell>
+                      <TableCell className="text-center">{o.subject.creditHours}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{o.semesterName}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {offerings.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No subjects offered yet.</p>
+              <p className="text-xs mt-1">Click &quot;Add Subject&quot; to begin adding subjects for this semester.</p>
+            </div>
+          )}
+
+          {availableSubjects.length === 0 && offerings.length > 0 && (
+            <p className="text-xs text-muted-foreground text-center pt-2">
+              All programme subjects for this year level have been offered.
+            </p>
           )}
         </CardContent>
       </Card>

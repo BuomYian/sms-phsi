@@ -56,25 +56,37 @@ export default async function ClassDetailPage({
 
   if (!cls) notFound();
 
-  // Get subjects for this year level
+  // Programme semesters for this year level
   const semStart = (cls.yearLevel - 1) * 2 + 1;
   const semEnd = cls.yearLevel * 2;
 
-  const subjects = await db.subject.findMany({
+  // Active and completed offerings for this class
+  const offerings = await db.subjectOffering.findMany({
+    where: { classId: id },
+    include: {
+      subject: {
+        include: {
+          instructors: {
+            where: { academicYearId: cls.academicYear.id },
+            include: {
+              staff: { include: { user: { select: { fullName: true } } } },
+              semester: { select: { name: true } },
+            },
+          },
+        },
+      },
+      semester: { select: { id: true, name: true } },
+    },
+    orderBy: [{ status: "asc" }, { subject: { semesterNumber: "asc" } }, { subject: { name: "asc" } }],
+  });
+
+  // All programme subjects for this year level that haven't been offered yet
+  const offeredSubjectIds = new Set(offerings.map((o) => o.subjectId));
+  const availableSubjects = await db.subject.findMany({
     where: {
       programId: cls.program.id,
       semesterNumber: { gte: semStart, lte: semEnd },
-    },
-    include: {
-      instructors: {
-        where: { academicYearId: cls.academicYear.id },
-        include: {
-          staff: {
-            include: { user: { select: { fullName: true } } },
-          },
-          semester: { select: { name: true } },
-        },
-      },
+      id: { notIn: offeredSubjectIds.size > 0 ? Array.from(offeredSubjectIds) : undefined },
     },
     orderBy: [{ semesterNumber: "asc" }, { name: "asc" }],
   });
@@ -117,17 +129,34 @@ export default async function ClassDetailPage({
         email: cs.student.user.email,
         status: cs.status,
       }))}
-      subjects={subjects.map((s) => ({
+      offerings={offerings.map((o) => ({
+        id: o.id,
+        status: o.status,
+        semesterId: o.semester.id,
+        semesterName: o.semester.name,
+        subject: {
+          id: o.subject.id,
+          name: o.subject.name,
+          code: o.subject.code,
+          creditHours: o.subject.creditHours,
+          semesterNumber: o.subject.semesterNumber,
+          type: o.subject.type,
+          instructors: o.subject.instructors.map((si) => ({
+            name: si.staff.user.fullName,
+            semester: si.semester.name,
+          })),
+        },
+      }))}
+      availableSubjects={availableSubjects.map((s) => ({
         id: s.id,
         name: s.name,
         code: s.code,
         creditHours: s.creditHours,
         semesterNumber: s.semesterNumber,
-        type: s.type,
-        instructors: s.instructors.map((si) => ({
-          name: si.staff.user.fullName,
-          semester: si.semester.name,
-        })),
+      }))}
+      calendarSemesters={cls.academicYear.semesters.map((s) => ({
+        id: s.id,
+        name: s.name,
       }))}
       availableStudents={availableStudents.map((s) => ({
         id: s.id,

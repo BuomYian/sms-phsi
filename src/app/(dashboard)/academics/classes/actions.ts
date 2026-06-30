@@ -96,7 +96,8 @@ export async function updateClassAction(
   }
 }
 
-// Enroll students into a class — auto-creates Enrollment + CourseEnrollments
+// Enroll students into a class — creates ClassStudent + Enrollment records only.
+// CourseEnrollments are created when admin adds a SubjectOffering (see below).
 export async function enrollStudentsInClassAction(
   classId: string,
   studentIds: string[],
@@ -105,9 +106,7 @@ export async function enrollStudentsInClassAction(
   if (!session || !["SUPER_ADMIN", "ADMIN"].includes(session.role))
     return { error: "Unauthorized" };
 
-  if (studentIds.length === 0) {
-    return { error: "Select at least one student." };
-  }
+  if (studentIds.length === 0) return { error: "Select at least one student." };
 
   try {
     const cls = await db.academicClass.findUnique({
@@ -115,202 +114,113 @@ export async function enrollStudentsInClassAction(
       include: {
         program: true,
         academicYear: {
-          include: {
-            semesters: { orderBy: { startDate: "asc" } },
-          },
+          include: { semesters: { orderBy: { startDate: "asc" } } },
         },
       },
     });
     if (!cls) return { error: "Class not found." };
 
-    // Calculate which semester numbers belong to this year level
-    // Year 1 = semesters 1-2, Year 2 = semesters 3-4, Year 3 = semesters 5-6
-    const semStart = (cls.yearLevel - 1) * 2 + 1;
-    const semEnd = cls.yearLevel * 2;
-
-    // Get subjects for this program and year level
-    const subjects = await db.subject.findMany({
-      where: {
-        programId: cls.programId,
-        semesterNumber: { gte: semStart, lte: semEnd },
-      },
-    });
-
-    // Get calendar semesters ordered (Semester 1 and Semester 2 of this academic year)
     const calendarSemesters = cls.academicYear.semesters;
-    if (calendarSemesters.length === 0) {
-      return {
-        error:
-          "No semesters found for this academic year. Create semesters first.",
-      };
-    }
+    if (calendarSemesters.length === 0)
+      return { error: "No semesters found for this academic year. Create semesters first." };
 
-    // Map: calendar semester index → subjects with matching semester number
-    // calendarSemesters[0] → semStart subjects, calendarSemesters[1] → semEnd subjects
-    const semesterSubjectMap: { semesterId: string; subjectIds: string[] }[] =
-      [];
-    for (let i = 0; i < calendarSemesters.length && i < 2; i++) {
-      const targetSemNum = semStart + i;
-      const semSubjects = subjects
-        .filter((s) => s.semesterNumber === targetSemNum)
-        .map((s) => s.id);
-      if (semSubjects.length > 0) {
-        semesterSubjectMap.push({
-          semesterId: calendarSemesters[i].id,
-          subjectIds: semSubjects,
-        });
-      }
-    }
-
-    let enrolledCount = 0;
-    let skippedCount = 0;
-
-    // Pre-fetch existing class students and enrollments outside the transaction
-    const existingClassStudents = await db.classStudent.findMany({
+    // Skip already-enrolled students
+    const existing = await db.classStudent.findMany({
       where: { classId, studentId: { in: studentIds } },
       select: { studentId: true },
     });
-    const existingStudentSet = new Set(
-      existingClassStudents.map((cs) => cs.studentId),
-    );
+    const existingSet = new Set(existing.map((e) => e.studentId));
+    const newIds = studentIds.filter((id) => !existingSet.has(id));
+    const skipped = studentIds.length - newIds.length;
 
-    const newStudentIds = studentIds.filter(
-      (id) => !existingStudentSet.has(id),
-    );
-    skippedCount = studentIds.length - newStudentIds.length;
+    if (newIds.length === 0)
+      return { success: true, message: `All ${skipped} student(s) already enrolled.` };
 
-    if (newStudentIds.length === 0) {
-      return {
-        success: true,
-        message: `All ${skippedCount} student(s) were already enrolled.`,
-      };
-    }
-
-    // Pre-fetch existing enrollments for these students in relevant semesters
-    const semesterIds = semesterSubjectMap.map((s) => s.semesterId);
-    const existingEnrollments = await db.enrollment.findMany({
-      where: {
-        studentId: { in: newStudentIds },
-        semesterId: { in: semesterIds },
-      },
-      select: { studentId: true, semesterId: true },
-    });
-    const existingEnrollmentSet = new Set(
-      existingEnrollments.map((e) => `${e.studentId}:${e.semesterId}`),
-    );
-
-    // Step 1: Batch create ClassStudent records
+    // 1. ClassStudent records
     await db.classStudent.createMany({
-      data: newStudentIds.map((studentId) => ({ classId, studentId })),
+      data: newIds.map((studentId) => ({ classId, studentId })),
       skipDuplicates: true,
     });
 
-    // Step 2: Create enrollments one at a time (no transaction — idempotent)
-    const enrollmentPairs: {
-      studentId: string;
-      semesterId: string;
-      subjectIds: string[];
-    }[] = [];
-    for (const studentId of newStudentIds) {
-      for (const { semesterId, subjectIds } of semesterSubjectMap) {
-        if (!existingEnrollmentSet.has(`${studentId}:${semesterId}`)) {
-          enrollmentPairs.push({ studentId, semesterId, subjectIds });
-        }
-      }
+    // 2. Enrollment records for each calendar semester (no CourseEnrollments yet)
+    const semesterIds = calendarSemesters.map((s) => s.id);
+    const existingEnrollments = await db.enrollment.findMany({
+      where: { studentId: { in: newIds }, semesterId: { in: semesterIds } },
+      select: { studentId: true, semesterId: true },
+    });
+    const enrolledSet = new Set(existingEnrollments.map((e) => `${e.studentId}:${e.semesterId}`));
+
+    const enrollmentRows = newIds.flatMap((studentId) =>
+      calendarSemesters
+        .filter((s) => !enrolledSet.has(`${studentId}:${s.id}`))
+        .map((s) => ({
+          studentId,
+          semesterId: s.id,
+          classId,
+          status: "APPROVED" as const,
+          approvedBy: session.id,
+          approvedDate: new Date(),
+        })),
+    );
+    if (enrollmentRows.length > 0) {
+      await db.enrollment.createMany({ data: enrollmentRows, skipDuplicates: true });
     }
 
-    // Process in small batches to avoid overwhelming the connection
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < enrollmentPairs.length; i += BATCH_SIZE) {
-      const batch = enrollmentPairs.slice(i, i + BATCH_SIZE);
-      await Promise.all(
-        batch.map(({ studentId, semesterId, subjectIds }) =>
-          db.enrollment.create({
-            data: {
-              studentId,
-              semesterId,
-              classId,
-              status: "APPROVED",
-              approvedBy: session.id,
-              approvedDate: new Date(),
-              courseEnrollments: {
-                create: subjectIds.map((subjectId) => ({ subjectId })),
-              },
-            },
-          }),
-        ),
+    // 3. For any ACTIVE subject offerings already on this class, give new students CourseEnrollments
+    const activeOfferings = await db.subjectOffering.findMany({
+      where: { classId, status: "ACTIVE" },
+      select: { subjectId: true, semesterId: true },
+    });
+    if (activeOfferings.length > 0) {
+      const enrollments = await db.enrollment.findMany({
+        where: { studentId: { in: newIds }, semesterId: { in: activeOfferings.map((o) => o.semesterId) } },
+        select: { id: true, studentId: true, semesterId: true },
+      });
+      const courseRows = enrollments.flatMap((enr) =>
+        activeOfferings
+          .filter((o) => o.semesterId === enr.semesterId)
+          .map((o) => ({ enrollmentId: enr.id, subjectId: o.subjectId })),
       );
+      if (courseRows.length > 0)
+        await db.courseEnrollment.createMany({ data: courseRows, skipDuplicates: true });
     }
 
-    // Step 3: Batch update year of study
+    // 4. Update year of study
     await db.student.updateMany({
-      where: { id: { in: newStudentIds } },
+      where: { id: { in: newIds } },
       data: { yearOfStudy: cls.yearLevel },
     });
 
-    enrolledCount = newStudentIds.length;
-
-    // Step 4: Auto-assign fee structures for this program/academic year/semesters
+    // 5. Auto-assign fee structures
     let feesAssigned = 0;
     const feeStructures = await db.feeStructure.findMany({
-      where: {
-        programId: cls.programId,
-        academicYearId: cls.academicYearId,
-        semesterId: { in: semesterIds },
-      },
+      where: { programId: cls.programId, academicYearId: cls.academicYearId, semesterId: { in: semesterIds } },
     });
-
     if (feeStructures.length > 0) {
-      // Pre-fetch existing student fees to avoid duplicates
       const existingFees = await db.studentFee.findMany({
-        where: {
-          studentId: { in: newStudentIds },
-          feeStructureId: { in: feeStructures.map((f) => f.id) },
-        },
+        where: { studentId: { in: newIds }, feeStructureId: { in: feeStructures.map((f) => f.id) } },
         select: { studentId: true, feeStructureId: true },
       });
-      const existingFeeSet = new Set(
-        existingFees.map((ef) => `${ef.studentId}:${ef.feeStructureId}`),
-      );
-
+      const existingFeeSet = new Set(existingFees.map((f) => `${f.studentId}:${f.feeStructureId}`));
       const now = new Date();
-      for (const studentId of newStudentIds) {
-        // Check for active scholarship once per student
+      for (const studentId of newIds) {
         const scholarship = await db.scholarship.findFirst({
-          where: {
-            studentId,
-            startDate: { lte: now },
-            endDate: { gte: now },
-          },
+          where: { studentId, startDate: { lte: now }, endDate: { gte: now } },
         });
-
         for (const fee of feeStructures) {
           if (existingFeeSet.has(`${studentId}:${fee.id}`)) continue;
-
-          const amountCharged = Number(fee.amount);
-          let balance = amountCharged;
+          const amount = Number(fee.amount);
+          let balance = amount;
           let status = "UNPAID";
-
           if (scholarship) {
-            let discount = 0;
-            if (scholarship.percentage) {
-              discount = amountCharged * (scholarship.percentage / 100);
-            } else if (scholarship.amount) {
-              discount = Math.min(Number(scholarship.amount), amountCharged);
-            }
-            balance = amountCharged - discount;
+            const discount = scholarship.percentage
+              ? amount * (scholarship.percentage / 100)
+              : Math.min(Number(scholarship.amount ?? 0), amount);
+            balance = amount - discount;
             status = balance <= 0 ? "PAID" : "UNPAID";
           }
-
           await db.studentFee.create({
-            data: {
-              studentId,
-              feeStructureId: fee.id,
-              amountCharged: fee.amount,
-              amountPaid: 0,
-              balance,
-              status,
-            },
+            data: { studentId, feeStructureId: fee.id, amountCharged: fee.amount, amountPaid: 0, balance, status },
           });
           feesAssigned++;
         }
@@ -318,10 +228,7 @@ export async function enrollStudentsInClassAction(
     }
 
     await logAction(session.id, "CREATE", "ClassEnrollment", classId, {
-      enrolled: enrolledCount,
-      skipped: skippedCount,
-      totalSubjects: subjects.length,
-      feesAssigned,
+      enrolled: newIds.length, skipped, feesAssigned,
     });
 
     revalidatePath(`/academics/classes/${classId}`);
@@ -329,13 +236,143 @@ export async function enrollStudentsInClassAction(
     revalidatePath("/fees");
     return {
       success: true,
-      message: `Enrolled ${enrolledCount} student(s) into ${cls.name}${feesAssigned > 0 ? ` and assigned ${feesAssigned} fee(s)` : ""}. ${skippedCount > 0 ? `${skippedCount} already enrolled.` : ""}`,
+      message: `Enrolled ${newIds.length} student(s) into ${cls.name}${feesAssigned > 0 ? ` with ${feesAssigned} fee(s) assigned` : ""}. ${skipped > 0 ? `${skipped} already enrolled.` : ""}`,
     };
   } catch (error) {
     console.error("Enroll students error:", error);
-    const msg =
-      error instanceof Error ? error.message : "Failed to enroll students.";
-    return { error: msg };
+    return { error: error instanceof Error ? error.message : "Failed to enroll students." };
+  }
+}
+
+// ===========================
+// SUBJECT OFFERINGS
+// ===========================
+
+export async function addSubjectOfferingAction(
+  classId: string,
+  subjectId: string,
+  semesterId: string,
+): Promise<ClassActionState> {
+  const session = await getSession();
+  if (!session || !["SUPER_ADMIN", "ADMIN"].includes(session.role))
+    return { error: "Unauthorized" };
+
+  try {
+    // Check not already offered to this class
+    const existing = await db.subjectOffering.findUnique({
+      where: { classId_subjectId: { classId, subjectId } },
+    });
+    if (existing)
+      return { error: existing.status === "COMPLETED" ? "This subject has already been taught to this class." : "This subject is already an active offering." };
+
+    // Create the offering
+    const offering = await db.subjectOffering.create({
+      data: { classId, subjectId, semesterId, createdBy: session.id },
+      include: { subject: { select: { name: true } } },
+    });
+
+    // Create CourseEnrollments for all currently enrolled students in this semester
+    const enrollments = await db.enrollment.findMany({
+      where: { classId, semesterId },
+      select: { id: true },
+    });
+    if (enrollments.length > 0) {
+      await db.courseEnrollment.createMany({
+        data: enrollments.map((e) => ({ enrollmentId: e.id, subjectId })),
+        skipDuplicates: true,
+      });
+    }
+
+    await logAction(session.id, "CREATE", "SubjectOffering", offering.id, {
+      classId, subjectId, semesterId,
+    });
+
+    revalidatePath(`/academics/classes/${classId}`);
+    return { success: true, message: `${offering.subject.name} added to offerings. ${enrollments.length} student(s) enrolled.` };
+  } catch (error) {
+    console.error("Add offering error:", error);
+    return { error: "Failed to add subject offering." };
+  }
+}
+
+export async function completeSubjectOfferingAction(
+  offeringId: string,
+  classId: string,
+): Promise<ClassActionState> {
+  const session = await getSession();
+  if (!session || !["SUPER_ADMIN", "ADMIN"].includes(session.role))
+    return { error: "Unauthorized" };
+
+  try {
+    const offering = await db.subjectOffering.findUnique({
+      where: { id: offeringId },
+      include: { subject: { select: { name: true } } },
+    });
+    if (!offering) return { error: "Offering not found." };
+    if (offering.status === "COMPLETED") return { error: "Already marked as completed." };
+
+    await db.subjectOffering.update({
+      where: { id: offeringId },
+      data: { status: "COMPLETED" },
+    });
+
+    await logAction(session.id, "UPDATE", "SubjectOffering", offeringId, { status: "COMPLETED" });
+
+    revalidatePath(`/academics/classes/${classId}`);
+    return { success: true, message: `${offering.subject.name} marked as taught.` };
+  } catch (error) {
+    console.error("Complete offering error:", error);
+    return { error: "Failed to update offering." };
+  }
+}
+
+export async function removeSubjectOfferingAction(
+  offeringId: string,
+  classId: string,
+): Promise<ClassActionState> {
+  const session = await getSession();
+  if (!session || !["SUPER_ADMIN", "ADMIN"].includes(session.role))
+    return { error: "Unauthorized" };
+
+  try {
+    const offering = await db.subjectOffering.findUnique({
+      where: { id: offeringId },
+      include: {
+        subject: {
+          select: {
+            name: true,
+            courseEnrollments: {
+              where: { grade: { isNot: null } },
+              select: { id: true },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+    if (!offering) return { error: "Offering not found." };
+    if (offering.status === "COMPLETED")
+      return { error: "Cannot remove a completed offering. It is part of the academic record." };
+    if (offering.subject.courseEnrollments.length > 0)
+      return { error: "Cannot remove — grades have already been entered for this subject." };
+
+    // Delete CourseEnrollments for this subject in this class's semester
+    await db.courseEnrollment.deleteMany({
+      where: {
+        subjectId: offering.subjectId,
+        enrollment: { classId },
+      },
+    });
+
+    await db.subjectOffering.delete({ where: { id: offeringId } });
+
+    await logAction(session.id, "DELETE", "SubjectOffering", offeringId, { classId });
+
+    revalidatePath(`/academics/classes/${classId}`);
+    return { success: true, message: `${offering.subject.name} removed from offerings.` };
+  } catch (error) {
+    console.error("Remove offering error:", error);
+    return { error: "Failed to remove offering." };
   }
 }
 
