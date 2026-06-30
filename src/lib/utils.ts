@@ -64,23 +64,19 @@ export function calculateGPA(
 }
 
 export function getGradeLetter(totalMarks: number): string {
-  if (totalMarks >= 70) return "A";
-  if (totalMarks >= 65) return "B+";
-  if (totalMarks >= 60) return "B";
-  if (totalMarks >= 55) return "C+";
-  if (totalMarks >= 50) return "C";
-  if (totalMarks >= 45) return "D";
+  if (totalMarks >= 80) return "A";
+  if (totalMarks >= 70) return "B";
+  if (totalMarks >= 60) return "C";
+  if (totalMarks >= 50) return "D";
   return "F";
 }
 
 export function getGPAPoints(gradeLetter: string): number {
   const scale: Record<string, number> = {
     A: 4.0,
-    "B+": 3.5,
     B: 3.0,
-    "C+": 2.5,
     C: 2.0,
-    D: 1.5,
+    D: 1.0,
     F: 0.0,
   };
   return scale[gradeLetter] ?? 0;

@@ -121,7 +121,7 @@ export default async function AcademicReportPage() {
             </p>
           ) : (
             <div className="space-y-3">
-              {["A", "B+", "B", "C+", "C", "D", "F"].map((letter) => {
+              {["A", "B", "C", "D", "F"].map((letter) => {
                 const item = gradeDistribution.find(
                   (g) => g.gradeLetter === letter,
                 );
