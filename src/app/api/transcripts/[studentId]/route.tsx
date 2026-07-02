@@ -52,28 +52,29 @@ const s = StyleSheet.create({
     paddingBottom: 10,
   },
   headerLogo: {
-    width: 60,
-    height: 60,
+    width: 52,
+    height: 52,
     objectFit: "contain",
   },
   headerCenter: {
     flex: 1,
     textAlign: "center",
+    paddingHorizontal: 6,
   },
   instName: {
-    fontSize: 16,
+    fontSize: 12,
     fontFamily: "Helvetica-Bold",
     textTransform: "uppercase",
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   instAddress: { fontSize: 9, marginTop: 2 },
   instMotto: { fontSize: 8, fontStyle: "italic", marginTop: 2, color: "#555" },
   titleLine: {
-    fontSize: 13,
+    fontSize: 10,
     fontFamily: "Helvetica-Bold",
     marginTop: 8,
     textTransform: "uppercase",
-    letterSpacing: 3,
+    letterSpacing: 2,
   },
   /* Student info grid */
   infoGrid: {
