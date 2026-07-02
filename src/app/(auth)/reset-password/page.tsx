@@ -17,7 +17,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { GraduationCap, Loader2, ArrowLeft, CheckCircle } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 export default function ResetPasswordPage() {
@@ -44,14 +45,21 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="w-full max-w-md space-y-6">
-      <div className="flex flex-col items-center space-y-2 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground">
-          <GraduationCap className="h-8 w-8" />
+      <div className="flex flex-col items-center space-y-3 text-center">
+        <Image
+          src="/phsi-logo.png"
+          alt="PHSI Logo"
+          width={96}
+          height={96}
+          className="object-contain rounded-full"
+          priority
+        />
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">PHSI</h1>
+          <p className="text-sm text-muted-foreground">
+            Presbyterian Health Science Institute
+          </p>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">PHSI</h1>
-        <p className="text-sm text-muted-foreground">
-          Presbyterian Health Science Institute
-        </p>
       </div>
 
       {step === "done" ? (
