@@ -110,7 +110,7 @@ export function AppSidebar({ user, onLogout, ...props }: AppSidebarProps) {
                   alt="PHSI Logo"
                   width={32}
                   height={32}
-                  className="shrink-0 object-contain"
+                  className="shrink-0 object-contain rounded-full"
                 />
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-semibold">{INSTITUTION_SHORT}</span>

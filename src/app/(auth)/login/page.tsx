@@ -34,7 +34,7 @@ export default function LoginPage() {
           alt="PHSI Logo"
           width={96}
           height={96}
-          className="object-contain"
+          className="object-contain rounded-full"
           priority
         />
         <div>
