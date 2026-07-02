@@ -5,21 +5,36 @@ import { Button } from "@/components/ui/button";
 import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export function DownloadTranscriptButton({ studentId }: { studentId: string }) {
+interface Props {
+  studentId: string;
+  enrollmentId?: string;
+  label?: string;
+  variant?: "default" | "outline" | "ghost" | "secondary";
+  size?: "default" | "sm" | "icon";
+}
+
+export function DownloadTranscriptButton({
+  studentId,
+  enrollmentId,
+  label = "Download PDF",
+  variant = "outline",
+  size = "default",
+}: Props) {
   const [loading, setLoading] = useState(false);
 
   async function handleDownload() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/transcripts/${studentId}`);
-      if (!res.ok) {
-        throw new Error("Failed to generate transcript");
-      }
+      const url = enrollmentId
+        ? `/api/transcripts/${studentId}?enrollmentId=${enrollmentId}`
+        : `/api/transcripts/${studentId}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to generate transcript");
 
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
+      a.href = objectUrl;
       a.download =
         res.headers
           .get("Content-Disposition")
@@ -28,23 +43,23 @@ export function DownloadTranscriptButton({ studentId }: { studentId: string }) {
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
-      toast.success("Transcript downloaded");
+      URL.revokeObjectURL(objectUrl);
+      toast.success("Downloaded");
     } catch {
-      toast.error("Failed to generate transcript PDF");
+      toast.error("Failed to generate PDF");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <Button onClick={handleDownload} disabled={loading} variant="outline">
+    <Button onClick={handleDownload} disabled={loading} variant={variant} size={size}>
       {loading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       ) : (
         <Download className="mr-2 h-4 w-4" />
       )}
-      Download PDF
+      {label}
     </Button>
   );
 }

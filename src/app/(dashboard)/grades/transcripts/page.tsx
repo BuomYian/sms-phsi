@@ -1,20 +1,12 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { FileText, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
+import { Search } from "lucide-react";
+import { TranscriptList, type StudentRow } from "./transcript-list";
 
 export const metadata = { title: "Transcripts" };
 
@@ -32,7 +24,6 @@ export default async function TranscriptsPage({
   const searchQuery = params.q?.trim() ?? "";
   const activeClassId = params.class || "";
 
-  // Fetch classes from the current academic year
   const activeYear = await db.academicYear.findFirst({
     where: { isCurrent: true },
     select: { id: true },
@@ -46,27 +37,20 @@ export default async function TranscriptsPage({
       })
     : [];
 
-  // Build student filter
   const studentWhere: Record<string, unknown> = {};
-
   if (searchQuery) {
     studentWhere.OR = [
       { studentIdNumber: { contains: searchQuery, mode: "insensitive" } },
-      {
-        user: {
-          fullName: { contains: searchQuery, mode: "insensitive" },
-        },
-      },
+      { user: { fullName: { contains: searchQuery, mode: "insensitive" } } },
     ];
   }
-
   if (activeClassId) {
     studentWhere.classStudents = {
       some: { classId: activeClassId, status: "ACTIVE" },
     };
   }
 
-  const students = await db.student.findMany({
+  const raw = await db.student.findMany({
     where: studentWhere,
     include: {
       user: { select: { fullName: true } },
@@ -83,10 +67,33 @@ export default async function TranscriptsPage({
       },
     },
     orderBy: { studentIdNumber: "asc" },
-    take: 100,
+    take: 200,
   });
 
-  // Helper to build filter URLs
+  const students: StudentRow[] = raw.map((s) => {
+    const graded = s.enrollments.flatMap((e) =>
+      e.courseEnrollments.filter(
+        (ce) => ce.grade && ce.grade.status === "APPROVED",
+      ),
+    );
+    const totalCredits = graded.reduce((sum, ce) => sum + ce.subject.creditHours, 0);
+    const cgpa =
+      totalCredits > 0
+        ? graded.reduce(
+            (sum, ce) => sum + (ce.grade!.gpaPoints ?? 0) * ce.subject.creditHours,
+            0,
+          ) / totalCredits
+        : 0;
+    return {
+      id: s.id,
+      studentIdNumber: s.studentIdNumber,
+      fullName: s.user.fullName,
+      program: s.program.name,
+      gradedCount: graded.length,
+      cgpa,
+    };
+  });
+
   function filterUrl(overrides: Record<string, string | undefined>) {
     const p = {
       class: activeClassId || undefined,
@@ -105,7 +112,7 @@ export default async function TranscriptsPage({
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Transcripts</h1>
         <p className="text-muted-foreground">
-          View and generate student academic transcripts.
+          View, download, or bulk-download student academic transcripts.
         </p>
       </div>
 
@@ -114,10 +121,7 @@ export default async function TranscriptsPage({
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">Class:</span>
           <Link href={filterUrl({ class: undefined })}>
-            <Badge
-              variant={!activeClassId ? "default" : "outline"}
-              className="cursor-pointer"
-            >
+            <Badge variant={!activeClassId ? "default" : "outline"} className="cursor-pointer">
               All
             </Badge>
           </Link>
@@ -153,95 +157,8 @@ export default async function TranscriptsPage({
         </Button>
       </form>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Students
-            {searchQuery && (
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                matching &ldquo;{searchQuery}&rdquo;
-              </span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Student ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Program</TableHead>
-                <TableHead className="text-center">Courses</TableHead>
-                <TableHead className="text-center">CGPA</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {students.map((s) => {
-                const graded = s.enrollments.flatMap((e) =>
-                  e.courseEnrollments.filter(
-                    (ce) => ce.grade && ce.grade.status === "APPROVED",
-                  ),
-                );
-                const totalCredits = graded.reduce(
-                  (sum, ce) => sum + ce.subject.creditHours,
-                  0,
-                );
-                const weightedGPA =
-                  totalCredits > 0
-                    ? graded.reduce(
-                        (sum, ce) =>
-                          sum +
-                          (ce.grade!.gpaPoints ?? 0) * ce.subject.creditHours,
-                        0,
-                      ) / totalCredits
-                    : 0;
-
-                return (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-mono">
-                      {s.studentIdNumber}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {s.user.fullName}
-                    </TableCell>
-                    <TableCell>{s.program.name}</TableCell>
-                    <TableCell className="text-center">
-                      {graded.length}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {weightedGPA > 0 ? (
-                        <Badge variant="outline">
-                          {weightedGPA.toFixed(2)}
-                        </Badge>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/grades/transcripts/${s.id}`}>
-                          <FileText className="mr-1 h-3.5 w-3.5" />
-                          Transcript
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {students.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    {searchQuery
-                      ? "No students matching your search."
-                      : "No students found."}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* Table with bulk-select */}
+      <TranscriptList students={students} />
     </div>
   );
 }

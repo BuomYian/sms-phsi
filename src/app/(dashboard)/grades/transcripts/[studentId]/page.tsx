@@ -128,7 +128,7 @@ export default async function TranscriptDetailPage({
             <p className="text-muted-foreground">{INSTITUTION_NAME}</p>
           </div>
         </div>
-        <DownloadTranscriptButton studentId={studentId} />
+        <DownloadTranscriptButton studentId={studentId} label="Full Transcript" />
       </div>
 
       {/* Transcript Logos + Institution Banner */}
@@ -212,18 +212,24 @@ export default async function TranscriptDetailPage({
           ({ enrollment, semesterCredits, semesterGPA, cGPA }) => (
             <Card key={enrollment.id}>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <CardTitle className="text-base">
                     {enrollment.semester.academicYear.name} —{" "}
                     {enrollment.semester.name}
                   </CardTitle>
-                  <div className="flex gap-3">
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
                     <Badge variant="outline">
                       GPA: {semesterGPA > 0 ? semesterGPA.toFixed(2) : "—"}
                     </Badge>
                     <Badge variant="secondary">
                       CGPA: {cGPA > 0 ? cGPA.toFixed(2) : "—"}
                     </Badge>
+                    <DownloadTranscriptButton
+                      studentId={studentId}
+                      enrollmentId={enrollment.id}
+                      label="Result Slip"
+                      size="sm"
+                    />
                   </div>
                 </div>
               </CardHeader>

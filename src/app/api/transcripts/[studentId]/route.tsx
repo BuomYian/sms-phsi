@@ -230,6 +230,7 @@ function TranscriptDocument({
   totalCredits,
   generatedAt,
   docRef,
+  title,
 }: {
   student: {
     fullName: string;
@@ -242,6 +243,7 @@ function TranscriptDocument({
   totalCredits: number;
   generatedAt: string;
   docRef: string;
+  title?: string;
 }) {
   return (
     <Document
@@ -266,7 +268,7 @@ function TranscriptDocument({
             <Text style={s.instName}>{INSTITUTION_NAME}</Text>
             <Text style={s.instAddress}>{INSTITUTION_ADDRESS}</Text>
             <Text style={s.instMotto}>{INSTITUTION_MOTTO}</Text>
-            <Text style={s.titleLine}>Official Academic Transcript</Text>
+            <Text style={s.titleLine}>{title ?? "Official Academic Transcript"}</Text>
           </View>
           <Image
             style={s.headerLogo}
@@ -406,7 +408,7 @@ function TranscriptDocument({
 /* API Handler                                                         */
 /* ------------------------------------------------------------------ */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ studentId: string }> },
 ) {
   const session = await getSession();
@@ -420,6 +422,7 @@ export async function GET(
   }
 
   const { studentId } = await params;
+  const enrollmentId = req.nextUrl.searchParams.get("enrollmentId");
 
   const student = await db.student.findUnique({
     where: { id: studentId },
@@ -452,11 +455,11 @@ export async function GET(
     return NextResponse.json({ error: "Student not found" }, { status: 404 });
   }
 
-  // ---------- Compute semester data ----------
+  // ---------- Compute semester data (always over all enrollments for running CGPA) ----------
   let cumulativeCredits = 0;
   let cumulativeWeightedPoints = 0;
 
-  const semesters: SemesterRow[] = student.enrollments.map((enrollment) => {
+  const allSemesters: SemesterRow[] = student.enrollments.map((enrollment) => {
     const gradedCourses = enrollment.courseEnrollments.filter(
       (ce) => ce.grade && ce.grade.status === "APPROVED",
     );
@@ -495,8 +498,24 @@ export async function GET(
     };
   });
 
+  // If a specific enrollment is requested, filter to just that semester
+  const semesters = enrollmentId
+    ? allSemesters.filter((s) => s.id === enrollmentId)
+    : allSemesters;
+
   const finalCGPA =
     cumulativeCredits > 0 ? cumulativeWeightedPoints / cumulativeCredits : 0;
+
+  // For a single-semester slip, the CGPA shown is cumulative up to that semester
+  const displayCGPA = enrollmentId
+    ? (semesters[0]?.cGPA ?? 0)
+    : finalCGPA;
+  const displayCredits = enrollmentId
+    ? (semesters[0]?.semCredits ?? 0)
+    : cumulativeCredits;
+
+  const isSingleSemester = !!enrollmentId && semesters.length === 1;
+  const semesterLabel = isSingleSemester ? semesters[0].yearSem : undefined;
 
   // ---------- Build tamper-resistance fields ----------
   const generatedAt = new Date().toISOString().replace("T", " ").slice(0, 19);
@@ -516,14 +535,18 @@ export async function GET(
         department: student.program.department?.name ?? "—",
       }}
       semesters={semesters}
-      finalCGPA={finalCGPA}
-      totalCredits={cumulativeCredits}
+      finalCGPA={displayCGPA}
+      totalCredits={displayCredits}
       generatedAt={generatedAt}
       docRef={docRef}
+      title={isSingleSemester ? `Semester Result — ${semesterLabel}` : undefined}
     />,
   );
 
-  const filename = `Transcript_${student.studentIdNumber}_${student.user.fullName.replace(/\s+/g, "_")}.pdf`;
+  const safeName = student.user.fullName.replace(/\s+/g, "_");
+  const filename = isSingleSemester
+    ? `Result_${student.studentIdNumber}_${semesters[0].yearSem.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`
+    : `Transcript_${student.studentIdNumber}_${safeName}.pdf`;
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
