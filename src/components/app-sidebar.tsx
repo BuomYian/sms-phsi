@@ -41,7 +41,8 @@ import { NAV_ITEMS, INSTITUTION_SHORT } from "@/constants";
 import { type SessionUser, Role } from "@/types";
 import { getInitials } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, GraduationCap, LogOut, User } from "lucide-react";
+import { ChevronRight, LogOut, User } from "lucide-react";
+import Image from "next/image";
 
 // Dynamic icon component
 function DynamicIcon({
@@ -104,9 +105,13 @@ export function AppSidebar({ user, onLogout, ...props }: AppSidebarProps) {
               className="hover:bg-sidebar-accent"
             >
               <Link href="/dashboard">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <GraduationCap className="size-4" />
-                </div>
+                <Image
+                  src="/phsi-logo.png"
+                  alt="PHSI Logo"
+                  width={32}
+                  height={32}
+                  className="shrink-0 object-contain"
+                />
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-semibold">{INSTITUTION_SHORT}</span>
                   <span className="text-xs text-sidebar-foreground/70">
