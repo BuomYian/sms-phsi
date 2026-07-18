@@ -175,7 +175,18 @@ export function AnnouncementDetail({
           <CardTitle>Content</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="whitespace-pre-wrap">{announcement.body}</p>
+          <div
+            className="prose prose-sm max-w-none text-sm
+              [&_b]:font-bold [&_strong]:font-bold
+              [&_i]:italic [&_em]:italic
+              [&_u]:underline [&_s]:line-through
+              [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-1
+              [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1
+              [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1
+              [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1
+              [&_li]:my-0.5 [&_p]:my-1"
+            dangerouslySetInnerHTML={{ __html: announcement.body }}
+          />
         </CardContent>
       </Card>
     </>

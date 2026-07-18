@@ -6,7 +6,6 @@ import { updateAnnouncementAction, type CommActionState } from "../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -22,6 +21,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { Loader2, CheckCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -88,12 +88,9 @@ export function AnnouncementEditForm({ announcement, programs }: Props) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="body">Body *</Label>
-            <Textarea
-              id="body"
+            <Label>Body *</Label>
+            <RichTextEditor
               name="body"
-              required
-              rows={6}
               defaultValue={announcement.body}
               disabled={isPending}
             />
