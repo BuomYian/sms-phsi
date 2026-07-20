@@ -87,8 +87,17 @@ export default async function AnnouncementsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="whitespace-pre-wrap text-sm line-clamp-3">
-                  {a.body}
+                <p className="text-sm line-clamp-3">
+                  {a.body
+                    .replace(/<[^>]*>/g, " ")
+                    .replace(/&nbsp;/g, " ")
+                    .replace(/&amp;/g, "&")
+                    .replace(/&lt;/g, "<")
+                    .replace(/&gt;/g, ">")
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#39;/g, "'")
+                    .replace(/\s+/g, " ")
+                    .trim()}
                 </p>
                 <div className="mt-3 flex items-center justify-between">
                   {a.expiryDate ? (

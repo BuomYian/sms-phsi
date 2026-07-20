@@ -119,14 +119,17 @@ async function getAdminStats() {
           })),
         }
       : null,
-    announcements: recentAnnouncements.map((a) => ({
-      id: a.id,
-      title: a.title,
-      body: a.body.length > 120 ? a.body.slice(0, 120) + "…" : a.body,
-      author: a.author.fullName,
-      publishDate: a.publishDate.toISOString(),
-      targetAudience: a.targetAudience,
-    })),
+    announcements: recentAnnouncements.map((a) => {
+      const plain = a.body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+      return {
+        id: a.id,
+        title: a.title,
+        body: plain.length > 120 ? plain.slice(0, 120) + "…" : plain,
+        author: a.author.fullName,
+        publishDate: a.publishDate.toISOString(),
+        targetAudience: a.targetAudience,
+      };
+    }),
     attendance: {
       present: attendancePresent,
       total: attendanceTotal,
@@ -176,14 +179,17 @@ async function getSharedData(userRole: string) {
           })),
         }
       : null,
-    announcements: announcements.map((a) => ({
-      id: a.id,
-      title: a.title,
-      body: a.body.length > 120 ? a.body.slice(0, 120) + "…" : a.body,
-      author: a.author.fullName,
-      publishDate: a.publishDate.toISOString(),
-      targetAudience: a.targetAudience,
-    })),
+    announcements: announcements.map((a) => {
+      const plain = a.body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+      return {
+        id: a.id,
+        title: a.title,
+        body: plain.length > 120 ? plain.slice(0, 120) + "…" : plain,
+        author: a.author.fullName,
+        publishDate: a.publishDate.toISOString(),
+        targetAudience: a.targetAudience,
+      };
+    }),
   };
 }
 
