@@ -68,18 +68,13 @@ export default async function TimetablePage({
     where.semesterId = activeSemesterId;
   }
 
-  // Admin filtering by class: show subjects for that class's program & year level
+  // Admin filtering by class: use SubjectOffering to get the exact subjects for this class
   if (isAdmin && activeClass) {
-    const semStart = (activeClass.yearLevel - 1) * 2 + 1;
-    const semEnd = activeClass.yearLevel * 2;
-    const classSubjects = await db.subject.findMany({
-      where: {
-        programId: activeClass.programId,
-        semesterNumber: { gte: semStart, lte: semEnd },
-      },
-      select: { id: true },
+    const offerings = await db.subjectOffering.findMany({
+      where: { classId: activeClass.id },
+      select: { subjectId: true },
     });
-    where.subjectId = { in: classSubjects.map((s) => s.id) };
+    where.subjectId = { in: offerings.map((o) => o.subjectId) };
   }
 
   // Instructors see only their own entries
