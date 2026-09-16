@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { getStudentSemesterId } from "@/lib/academic";
 import { getSession } from "@/lib/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,9 +41,22 @@ export default async function TimetablePage({
     orderBy: [{ academicYear: { startDate: "desc" } }, { startDate: "asc" }],
   });
 
-  // Default to the current semester
+  // Cohorts can run concurrently in different semesters, so a student defaults
+  // to the semester of their own latest approved enrollment rather than the
+  // institution-wide current semester.
+  const student = isStudent
+    ? await db.student.findFirst({
+        where: { userId: session.id },
+        select: { id: true },
+      })
+    : null;
+  const studentSemesterId = student
+    ? await getStudentSemesterId(student.id)
+    : undefined;
+
   const currentSemester = semesters.find((s) => s.isCurrent);
-  const activeSemesterId = params.semester || currentSemester?.id || "";
+  const activeSemesterId =
+    params.semester || studentSemesterId || currentSemester?.id || "";
   const activeSemester = semesters.find((s) => s.id === activeSemesterId);
 
   // For admins: fetch classes to filter by
@@ -90,10 +104,6 @@ export default async function TimetablePage({
 
   // Students see entries for subjects in their active enrollment
   if (isStudent) {
-    const student = await db.student.findFirst({
-      where: { userId: session.id },
-      select: { id: true },
-    });
     if (student && activeSemesterId) {
       const enrollment = await db.enrollment.findFirst({
         where: {
@@ -112,6 +122,8 @@ export default async function TimetablePage({
       } else {
         where.subjectId = { in: [] };
       }
+    } else {
+      where.subjectId = { in: [] };
     }
   }
 
@@ -205,17 +217,13 @@ export default async function TimetablePage({
             variant={!params.semester ? "default" : "outline"}
             className="cursor-pointer"
           >
-            Current
+            {isStudent ? "My Semester" : "Current"}
           </Badge>
         </Link>
         {semesters.map((s) => (
           <Link key={s.id} href={`/timetable?semester=${s.id}`}>
             <Badge
-              variant={
-                activeSemesterId === s.id && params.semester
-                  ? "default"
-                  : "outline"
-              }
+              variant={activeSemesterId === s.id ? "default" : "outline"}
               className="cursor-pointer"
             >
               {s.academicYear.name} — {s.name}

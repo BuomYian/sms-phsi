@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { getStudentSemesterId } from "@/lib/academic";
 import { Role } from "@/types";
 import { AdminDashboard } from "./admin-dashboard";
 import { InstructorDashboard } from "./instructor-dashboard";
@@ -258,10 +259,7 @@ async function getStudentStats(userId: string) {
 
   if (!student) return null;
 
-  const currentSemester = await db.semester.findFirst({
-    where: { isCurrent: true },
-    select: { id: true },
-  });
+  const semesterId = await getStudentSemesterId(student.id);
 
   const [enrollments, grades, fees, timetableEntries, attendanceStats] =
     await Promise.all([
@@ -281,14 +279,14 @@ async function getStudentStats(userId: string) {
           status: true,
         },
       }),
-      currentSemester
+      semesterId
         ? db.timetableEntry.findMany({
             where: {
-              semester: { isCurrent: true },
+              semesterId,
               subject: {
                 courseEnrollments: {
                   some: {
-                    enrollment: { studentId: student.id },
+                    enrollment: { studentId: student.id, semesterId },
                   },
                 },
               },
