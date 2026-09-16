@@ -46,9 +46,11 @@ type StudentRow = {
   existingStatus: string | null;
 };
 
+type ClassOption = { id: string; name: string; semesterLabel: string };
+
 type Props = {
   subjects: { id: string; code: string; name: string }[];
-  currentSemesterId: string | null;
+  subjectClasses: Record<string, ClassOption[]>;
 };
 
 const statusButtons = [
@@ -70,11 +72,12 @@ const statusButtons = [
 
 export default function MarkAttendanceForm({
   subjects,
-  currentSemesterId,
+  subjectClasses,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedClass, setSelectedClass] = useState("");
   const [date, setDate] = useState(
     () => new Date().toISOString().split("T")[0],
   );
@@ -82,9 +85,24 @@ export default function MarkAttendanceForm({
   const [statuses, setStatuses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  // Fetch enrolled students when subject or date changes
+  const classOptions = selectedSubject
+    ? (subjectClasses[selectedSubject] ?? [])
+    : [];
+  const selectedClassName = classOptions.find(
+    (c) => c.id === selectedClass,
+  )?.name;
+
+  // Changing subject invalidates the chosen class. When the subject only runs
+  // for one class there is nothing to decide, so pick it automatically.
+  function handleSubjectChange(subjectId: string) {
+    setSelectedSubject(subjectId);
+    const options = subjectClasses[subjectId] ?? [];
+    setSelectedClass(options.length === 1 ? options[0].id : "");
+  }
+
+  // Fetch enrolled students when subject, class or date changes
   useEffect(() => {
-    if (!selectedSubject || !date) {
+    if (!selectedSubject || !selectedClass || !date) {
       setStudents([]);
       setStatuses({});
       return;
@@ -96,7 +114,7 @@ export default function MarkAttendanceForm({
     async function fetchStudents() {
       try {
         const res = await fetch(
-          `/api/attendance/students?subjectId=${encodeURIComponent(selectedSubject)}&date=${encodeURIComponent(date)}${currentSemesterId ? `&semesterId=${encodeURIComponent(currentSemesterId)}` : ""}`,
+          `/api/attendance/students?subjectId=${encodeURIComponent(selectedSubject)}&classId=${encodeURIComponent(selectedClass)}&date=${encodeURIComponent(date)}`,
         );
         if (!res.ok) throw new Error("Failed to load students");
         const data: StudentRow[] = await res.json();
@@ -122,7 +140,7 @@ export default function MarkAttendanceForm({
     return () => {
       cancelled = true;
     };
-  }, [selectedSubject, date, currentSemesterId]);
+  }, [selectedSubject, selectedClass, date]);
 
   function setAllStatuses(status: string) {
     const updated: Record<string, string> = {};
@@ -157,18 +175,21 @@ export default function MarkAttendanceForm({
       {/* Subject and Date Selection */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Select Subject & Date</CardTitle>
+          <CardTitle className="text-base">
+            Select Subject, Class & Date
+          </CardTitle>
           <CardDescription>
-            Choose a subject and date to load enrolled students.
+            Choose a subject, the class you are teaching, and the date to load
+            the register.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Subject</Label>
               <Select
                 value={selectedSubject}
-                onValueChange={setSelectedSubject}
+                onValueChange={handleSubjectChange}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a subject" />
@@ -177,6 +198,31 @@ export default function MarkAttendanceForm({
                   {subjects.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.code} — {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Class</Label>
+              <Select
+                value={selectedClass}
+                onValueChange={setSelectedClass}
+                disabled={!selectedSubject || classOptions.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      selectedSubject
+                        ? "Select a class"
+                        : "Select a subject first"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {classOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -211,7 +257,8 @@ export default function MarkAttendanceForm({
                   Students ({students.length})
                 </CardTitle>
                 <CardDescription>
-                  Click a status for each student, or use quick actions below.
+                  {selectedClassName ? `${selectedClassName} · ` : ""}Click a
+                  status for each student, or use quick actions below.
                 </CardDescription>
               </div>
               <div className="flex gap-2">
@@ -292,13 +339,26 @@ export default function MarkAttendanceForm({
         </Card>
       )}
 
-      {!loading && selectedSubject && students.length === 0 && (
+      {!loading && selectedSubject && !selectedClass && (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            No enrolled students found for this subject in the current semester.
+            {classOptions.length === 0
+              ? "This subject is not currently offered to any class."
+              : "Select a class to load the register."}
           </CardContent>
         </Card>
       )}
+
+      {!loading &&
+        selectedSubject &&
+        selectedClass &&
+        students.length === 0 && (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              No enrolled students found for this class.
+            </CardContent>
+          </Card>
+        )}
 
       {/* Summary and Submit */}
       {students.length > 0 && !loading && (

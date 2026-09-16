@@ -10,23 +10,61 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = request.nextUrl;
   const subjectId = searchParams.get("subjectId");
+  const classId = searchParams.get("classId");
   const date = searchParams.get("date");
-  const semesterId = searchParams.get("semesterId");
 
-  if (!subjectId || !date) {
+  if (!subjectId || !classId || !date) {
     return NextResponse.json(
-      { error: "subjectId and date are required" },
+      { error: "subjectId, classId and date are required" },
       { status: 400 },
     );
   }
 
-  // Find course enrollments for this subject in the current semester
+  const isAdmin = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
+  const isInstructor = session.role === "INSTRUCTOR";
+  if (!isAdmin && !isInstructor) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Instructors may only load registers for subjects they actually teach.
+  if (isInstructor) {
+    const staff = await db.staff.findFirst({
+      where: { userId: session.id },
+      select: { id: true },
+    });
+    if (!staff) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const [scheduled, assigned] = await Promise.all([
+      db.timetableEntry.count({ where: { subjectId, instructorId: staff.id } }),
+      db.subjectInstructor.count({ where: { subjectId, staffId: staff.id } }),
+    ]);
+    if (scheduled === 0 && assigned === 0) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  // The offering pins the subject to one class in one semester. That pairing is
+  // what scopes the register — a subject such as Biochemistry runs for several
+  // classes at once, so subject alone would mix cohorts together.
+  const offering = await db.subjectOffering.findUnique({
+    where: { classId_subjectId: { classId, subjectId } },
+    select: { semesterId: true },
+  });
+  if (!offering) {
+    return NextResponse.json(
+      { error: "This subject is not offered to the selected class." },
+      { status: 404 },
+    );
+  }
+
   const courseEnrollments = await db.courseEnrollment.findMany({
     where: {
       subjectId,
       enrollment: {
         status: "APPROVED",
-        ...(semesterId ? { semesterId } : {}),
+        classId,
+        semesterId: offering.semesterId,
       },
     },
     include: {
