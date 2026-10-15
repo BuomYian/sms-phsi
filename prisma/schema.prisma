@@ -136,6 +136,7 @@ model User {
   attendanceMarked Attendance[]       @relation("AttendanceMarker")
   gradesSubmitted  Grade[]            @relation("GradeSubmitter")
   gradesApproved   Grade[]            @relation("GradeApprover")
+  gradesAmended    Grade[]            @relation("GradeAmender")
   paymentsRecorded Payment[]          @relation("PaymentRecorder")
   enrollmentsApproved Enrollment[]    @relation("EnrollmentApprover")
   parentLinks      ParentStudent[]    @relation("ParentUser")
@@ -556,12 +557,25 @@ model Grade {
   approvedBy         String?     @map("approved_by") @db.Uuid
   submittedDate      DateTime?   @map("submitted_date")
   approvedDate       DateTime?   @map("approved_date")
+  // Amendment trail. An admin may correct an already-APPROVED grade; the
+  // superseded marks are snapshotted here so a registrar can see what changed
+  // without digging through the audit log. amendedDate != null is the flag for
+  // "this grade has been amended at least once" — the previous* fields are
+  // only meaningful when it is set.
+  previousCaMarks     Float?     @map("previous_ca_marks")
+  previousExamMarks   Float?     @map("previous_exam_marks")
+  previousTotalMarks  Float?     @map("previous_total_marks")
+  previousGradeLetter String?    @map("previous_grade_letter")
+  amendedBy          String?     @map("amended_by") @db.Uuid
+  amendedDate        DateTime?   @map("amended_date")
+  amendmentReason    String?     @map("amendment_reason")
   createdAt          DateTime    @default(now()) @map("created_at")
   updatedAt          DateTime    @updatedAt @map("updated_at")
 
   courseEnrollment    CourseEnrollment @relation(fields: [courseEnrollmentId], references: [id], onDelete: Cascade)
   submitter          User?            @relation("GradeSubmitter", fields: [submittedBy], references: [id])
   approver           User?            @relation("GradeApprover", fields: [approvedBy], references: [id])
+  amender            User?            @relation("GradeAmender", fields: [amendedBy], references: [id])
 
   @@map("grades")
 }

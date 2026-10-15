@@ -21,6 +21,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 type Subject = {
@@ -138,6 +143,13 @@ function GradeRow({
   const examNum = parseFloat(exam);
   const total = !isNaN(caNum) && !isNaN(examNum) ? caNum + examNum : null;
 
+  // Once approved, a grade is locked here. Corrections go through an admin on
+  // the review page so they are snapshotted and audited, rather than silently
+  // resetting the grade to SUBMITTED and dropping it off transcripts.
+  const isLocked =
+    courseEnrollment.grade?.status === "APPROVED" ||
+    courseEnrollment.grade?.status === "PUBLISHED";
+
   useEffect(() => {
     if (state?.success) toast.success(state.message);
     if (state?.error) toast.error(state.error);
@@ -157,6 +169,7 @@ function GradeRow({
           step={0.5}
           value={ca}
           onChange={(e) => setCa(e.target.value)}
+          disabled={isLocked}
           className="h-8 text-center"
         />
       </TableCell>
@@ -168,6 +181,7 @@ function GradeRow({
           step={0.5}
           value={exam}
           onChange={(e) => setExam(e.target.value)}
+          disabled={isLocked}
           className="h-8 text-center"
         />
       </TableCell>
@@ -197,18 +211,32 @@ function GradeRow({
         )}
       </TableCell>
       <TableCell className="text-right">
-        <form action={formAction}>
-          <input
-            type="hidden"
-            name="courseEnrollmentId"
-            value={courseEnrollment.id}
-          />
-          <input type="hidden" name="caMarks" value={ca} />
-          <input type="hidden" name="examMarks" value={exam} />
-          <Button type="submit" size="sm" disabled={isPending || !ca || !exam}>
-            {isPending ? "…" : "Submit"}
-          </Button>
-        </form>
+        {isLocked ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help text-xs text-muted-foreground">
+                Locked
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              This grade is approved. Ask an administrator to amend it from
+              Grade Review.
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <form action={formAction}>
+            <input
+              type="hidden"
+              name="courseEnrollmentId"
+              value={courseEnrollment.id}
+            />
+            <input type="hidden" name="caMarks" value={ca} />
+            <input type="hidden" name="examMarks" value={exam} />
+            <Button type="submit" size="sm" disabled={isPending || !ca || !exam}>
+              {isPending ? "…" : "Submit"}
+            </Button>
+          </form>
+        )}
       </TableCell>
     </TableRow>
   );

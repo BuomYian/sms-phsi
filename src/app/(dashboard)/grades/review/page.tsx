@@ -86,8 +86,14 @@ export default async function GradeReviewPage({
           },
         },
         submitter: { select: { fullName: true } },
+        amender: { select: { fullName: true } },
       },
-      orderBy: { submittedDate: "desc" },
+      // Approved grades have no meaningful submittedDate ordering — sort them
+      // by when they were approved instead.
+      orderBy:
+        statusFilter === "APPROVED"
+          ? { approvedDate: { sort: "desc", nulls: "last" } }
+          : { submittedDate: { sort: "desc", nulls: "last" } },
     }),
     db.subject.findMany({
       where: {
@@ -196,7 +202,7 @@ export default async function GradeReviewPage({
 
       <GradeReviewClient
         grades={grades}
-        showActions={activeStatus === "SUBMITTED"}
+        showBulkSelect={activeStatus === "SUBMITTED"}
       />
     </div>
   );

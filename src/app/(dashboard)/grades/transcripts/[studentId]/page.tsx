@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
+import AmendGradeDialog from "../../amend-grade-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -245,6 +246,9 @@ export default async function TranscriptDetailPage({
                       <TableHead className="text-center">Total</TableHead>
                       <TableHead className="text-center">Grade</TableHead>
                       <TableHead className="text-center">Points</TableHead>
+                      <TableHead className="text-right print:hidden">
+                        Action
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -284,6 +288,33 @@ export default async function TranscriptDetailPage({
                         <TableCell className="text-center">
                           {ce.grade?.gpaPoints?.toFixed(1) ?? "—"}
                         </TableCell>
+                        <TableCell className="text-right print:hidden">
+                          {ce.grade &&
+                          (ce.grade.status === "APPROVED" ||
+                            ce.grade.status === "PUBLISHED") ? (
+                            <AmendGradeDialog
+                              grade={{
+                                id: ce.grade.id,
+                                caMarks: ce.grade.caMarks,
+                                examMarks: ce.grade.examMarks,
+                                totalMarks: ce.grade.totalMarks,
+                                gradeLetter: ce.grade.gradeLetter,
+                                status: ce.grade.status,
+                                previousTotalMarks: ce.grade.previousTotalMarks,
+                                previousGradeLetter:
+                                  ce.grade.previousGradeLetter,
+                                amendedDate: ce.grade.amendedDate,
+                                amendmentReason: ce.grade.amendmentReason,
+                                studentName: student.user.fullName,
+                                subjectCode: ce.subject.code,
+                              }}
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                     {/* Semester summary row */}
@@ -299,6 +330,7 @@ export default async function TranscriptDetailPage({
                         GPA: {semesterGPA > 0 ? semesterGPA.toFixed(2) : "—"}
                       </TableCell>
                       <TableCell />
+                      <TableCell className="print:hidden" />
                     </TableRow>
                   </TableBody>
                 </Table>
