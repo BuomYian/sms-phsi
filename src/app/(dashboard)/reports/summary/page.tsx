@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { summariseFeeAggregate } from "@/lib/fees";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,8 +17,7 @@ export default async function SummaryReportPage() {
     enrollmentCount,
     gradeCount,
     paymentCount,
-    billedAgg,
-    paidAgg,
+    feeAgg,
     attendanceCount,
     presentCount,
   ] = await Promise.all([
@@ -28,19 +28,20 @@ export default async function SummaryReportPage() {
     db.enrollment.count(),
     db.grade.count({ where: { status: "APPROVED" } }),
     db.payment.count(),
-    db.studentFee.aggregate({ _sum: { amountCharged: true } }),
-    db.studentFee.aggregate({ _sum: { amountPaid: true } }),
+    db.studentFee.aggregate({
+      _sum: { amountCharged: true, amountPaid: true, balance: true },
+    }),
     db.attendance.count(),
     db.attendance.count({ where: { status: { in: ["PRESENT", "LATE"] } } }),
   ]);
 
-  const billed = Number(billedAgg._sum.amountCharged ?? 0);
-  const paid = Number(paidAgg._sum.amountPaid ?? 0);
+  const feeSummary = summariseFeeAggregate(feeAgg._sum);
+  const { billed, paid, waived, outstanding } = feeSummary;
   const attendanceRate =
     attendanceCount > 0
       ? ((presentCount / attendanceCount) * 100).toFixed(1)
       : "0";
-  const collectionRate = billed > 0 ? ((paid / billed) * 100).toFixed(1) : "0";
+  const collectionRate = feeSummary.collectionRate.toFixed(1);
 
   const kpis: { label: string; value: string; color?: string }[] = [
     { label: "Total Students", value: studentCount.toString() },
@@ -56,14 +57,19 @@ export default async function SummaryReportPage() {
     { label: "Payments Recorded", value: paymentCount.toString() },
     { label: "Total Billed", value: formatCurrency(billed) },
     {
+      label: "Sponsored",
+      value: formatCurrency(waived),
+      color: "text-emerald-600",
+    },
+    {
       label: "Total Collected",
       value: formatCurrency(paid),
       color: "text-green-600",
     },
     {
       label: "Outstanding",
-      value: formatCurrency(billed - paid),
-      color: billed - paid > 0 ? "text-red-600" : "text-green-600",
+      value: formatCurrency(outstanding),
+      color: outstanding > 0 ? "text-red-600" : "text-green-600",
     },
   ];
 

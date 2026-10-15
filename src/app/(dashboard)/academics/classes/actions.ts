@@ -4,6 +4,11 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { logAction } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import {
+  applyScholarshipToFee,
+  activeScholarshipWhere,
+  SCHOLARSHIP_PREFERENCE_ORDER,
+} from "@/lib/fees";
 
 export type ClassActionState = {
   error?: string;
@@ -204,23 +209,31 @@ export async function enrollStudentsInClassAction(
       const existingFeeSet = new Set(existingFees.map((f) => `${f.studentId}:${f.feeStructureId}`));
       const now = new Date();
       for (const studentId of newIds) {
+        // Most generous award wins; discounts are never stacked.
         const scholarship = await db.scholarship.findFirst({
-          where: { studentId, startDate: { lte: now }, endDate: { gte: now } },
+          where: { studentId, ...activeScholarshipWhere(now) },
+          orderBy: SCHOLARSHIP_PREFERENCE_ORDER,
         });
         for (const fee of feeStructures) {
           if (existingFeeSet.has(`${studentId}:${fee.id}`)) continue;
-          const amount = Number(fee.amount);
-          let balance = amount;
-          let status = "UNPAID";
-          if (scholarship) {
-            const discount = scholarship.percentage
-              ? amount * (scholarship.percentage / 100)
-              : Math.min(Number(scholarship.amount ?? 0), amount);
-            balance = amount - discount;
-            status = balance <= 0 ? "PAID" : "UNPAID";
-          }
+          // Shared with bulkAssignFeesAction — this is the path that bills a
+          // cohort each semester, so a sponsored student must stay sponsored
+          // for every future fee without anyone re-running anything.
+          const applied = applyScholarshipToFee({
+            amountCharged: fee.amount,
+            amountPaid: 0,
+            scholarship,
+          });
           await db.studentFee.create({
-            data: { studentId, feeStructureId: fee.id, amountCharged: fee.amount, amountPaid: 0, balance, status },
+            data: {
+              studentId,
+              feeStructureId: fee.id,
+              amountCharged: fee.amount,
+              amountPaid: 0,
+              balance: applied.balance,
+              status: applied.status,
+              scholarshipId: applied.scholarshipId,
+            },
           });
           feesAssigned++;
         }

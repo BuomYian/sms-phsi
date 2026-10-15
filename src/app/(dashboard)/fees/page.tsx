@@ -15,6 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { summariseFeeAggregate, activeScholarshipWhere } from "@/lib/fees";
 
 export const metadata = { title: "Fees & Finance" };
 
@@ -31,17 +32,17 @@ export default async function FeesPage() {
   // If student, redirect to my-fees
   if (isStudent) redirect("/fees/my-fees");
 
-  const [totalBilled, totalPaid, paymentsCount, scholarshipsCount] =
-    await Promise.all([
-      db.studentFee.aggregate({ _sum: { amountCharged: true } }),
-      db.studentFee.aggregate({ _sum: { amountPaid: true } }),
-      db.payment.count(),
-      db.scholarship.count(),
-    ]);
+  const [feeAgg, paymentsCount, scholarshipsCount] = await Promise.all([
+    db.studentFee.aggregate({
+      _sum: { amountCharged: true, amountPaid: true, balance: true },
+    }),
+    db.payment.count(),
+    // Date-filtered: an expired award is not an active one.
+    db.scholarship.count({ where: activeScholarshipWhere() }),
+  ]);
 
-  const billed = Number(totalBilled._sum.amountCharged ?? 0);
-  const paid = Number(totalPaid._sum.amountPaid ?? 0);
-  const outstanding = billed - paid;
+  const summary = summariseFeeAggregate(feeAgg._sum);
+  const { billed, paid, waived, outstanding } = summary;
 
   type Section = {
     title: string;
@@ -65,7 +66,9 @@ export default async function FeesPage() {
       description:
         outstanding > 0
           ? `${formatCurrency(outstanding)} outstanding`
-          : "No fees yet",
+          : billed > 0
+            ? "All fees settled or sponsored"
+            : "No fees yet",
       icon: CreditCard,
       href: "/fees/accounts",
       roles: ["SUPER_ADMIN", "ADMIN", "FINANCE"],
@@ -123,7 +126,7 @@ export default async function FeesPage() {
       </div>
 
       {isAdmin && (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -132,6 +135,18 @@ export default async function FeesPage() {
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{formatCurrency(billed)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Sponsored
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-emerald-600">
+                {formatCurrency(waived)}
+              </p>
             </CardContent>
           </Card>
           <Card>

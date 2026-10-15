@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { getStudentSemesterId } from "@/lib/academic";
+import { summariseFees, summariseFeeAggregate } from "@/lib/fees";
 import { Role } from "@/types";
 import { AdminDashboard } from "./admin-dashboard";
 import { InstructorDashboard } from "./instructor-dashboard";
@@ -45,9 +46,13 @@ async function getAdminStats() {
       include: { user: { select: { fullName: true } } },
     }),
     // Finance
-    db.studentFee.aggregate({ _sum: { amountCharged: true } }),
+    db.studentFee.aggregate({
+      _sum: { amountCharged: true, amountPaid: true, balance: true },
+    }),
     db.payment.aggregate({ _sum: { amount: true } }),
-    db.studentFee.count({ where: { status: "UNPAID" } }),
+    // Count by balance rather than status: survives any future status value
+    // and catches PARTIAL rows that still owe money.
+    db.studentFee.count({ where: { balance: { gt: 0 } } }),
     // Enrollment
     db.enrollment.count({ where: { status: "PENDING" } }),
     db.enrollment.count({ where: { status: "APPROVED" } }),
@@ -78,9 +83,10 @@ async function getAdminStats() {
     }),
   ]);
 
-  const totalBilled = Number(totalFees._sum.amountCharged ?? 0);
+  const feeSummary = summariseFeeAggregate(totalFees._sum);
+  // "Collected" on a finance dashboard means cash actually received, which is
+  // the payments table — not the allocated amountPaid column.
   const totalCollected = Number(totalPayments._sum.amount ?? 0);
-  const outstanding = totalBilled - totalCollected;
 
   return {
     totalStudents,
@@ -96,12 +102,14 @@ async function getAdminStats() {
       type: "info" as const,
     })),
     finance: {
-      totalBilled,
+      totalBilled: feeSummary.billed,
       totalCollected,
-      outstanding,
+      totalWaived: feeSummary.waived,
+      // Outstanding is Σ balance — never billed − collected, which would
+      // report sponsored money as still owed.
+      outstanding: feeSummary.outstanding,
       pendingFees,
-      collectionRate:
-        totalBilled > 0 ? Math.round((totalCollected / totalBilled) * 100) : 0,
+      collectionRate: Math.round(feeSummary.collectionRate),
     },
     enrollment: {
       pending: pendingEnrollments,
@@ -309,8 +317,7 @@ async function getStudentStats(userId: string) {
       }),
     ]);
 
-  const totalFees = fees.reduce((s, f) => s + Number(f.amountCharged), 0);
-  const totalPaid = fees.reduce((s, f) => s + Number(f.amountPaid), 0);
+  const feeSummary = summariseFees(fees);
   const presentCount =
     attendanceStats.find((a) => a.status === "PRESENT")?._count ?? 0;
   const totalAttendance = attendanceStats.reduce((s, a) => s + a._count, 0);
@@ -326,10 +333,12 @@ async function getStudentStats(userId: string) {
           )
         : null,
     finance: {
-      totalFees,
-      totalPaid,
-      balance: totalFees - totalPaid,
-      unpaidCount: fees.filter((f) => f.status === "UNPAID").length,
+      totalFees: feeSummary.billed,
+      totalPaid: feeSummary.paid,
+      totalWaived: feeSummary.waived,
+      netBilled: feeSummary.netBilled,
+      balance: feeSummary.outstanding,
+      unpaidCount: fees.filter((f) => Number(f.balance) > 0).length,
     },
     timetable: timetableEntries.map((t) => ({
       id: t.id,
@@ -353,11 +362,12 @@ async function getStudentStats(userId: string) {
 }
 
 async function getFinanceStats() {
-  const [totalFees, payments, pendingCount, recentPayments, unpaidStudents] =
+  const [totalFees, payments, recentPayments, unpaidStudents] =
     await Promise.all([
-      db.studentFee.aggregate({ _sum: { amountCharged: true } }),
+      db.studentFee.aggregate({
+        _sum: { amountCharged: true, amountPaid: true, balance: true },
+      }),
       db.payment.aggregate({ _sum: { amount: true } }),
-      db.studentFee.count({ where: { status: "PENDING" } }),
       db.payment.findMany({
         take: 10,
         orderBy: { createdAt: "desc" },
@@ -367,13 +377,18 @@ async function getFinanceStats() {
           },
         },
       }),
-      db.studentFee.count({ where: { status: "UNPAID" } }),
+      db.studentFee.count({ where: { balance: { gt: 0 } } }),
     ]);
 
+  const feeSummary = summariseFeeAggregate(totalFees._sum);
+
   return {
-    totalBilled: Number(totalFees._sum.amountCharged ?? 0),
+    totalBilled: feeSummary.billed,
     totalCollected: Number(payments._sum.amount ?? 0),
-    pendingPayments: pendingCount,
+    totalWaived: feeSummary.waived,
+    outstanding: feeSummary.outstanding,
+    netBilled: feeSummary.netBilled,
+    collectionRate: feeSummary.collectionRate,
     unpaidStudents,
     recentPayments: recentPayments.map((p) => ({
       id: p.id,
@@ -398,6 +413,7 @@ async function getParentStats(userId: string) {
             select: {
               amountCharged: true,
               amountPaid: true,
+              balance: true,
               status: true,
             },
           },
@@ -413,14 +429,7 @@ async function getParentStats(userId: string) {
 
   return {
     children: children.map((c) => {
-      const totalFees = c.student.studentFees.reduce(
-        (s, f) => s + Number(f.amountCharged),
-        0,
-      );
-      const totalPaid = c.student.studentFees.reduce(
-        (s, f) => s + Number(f.amountPaid),
-        0,
-      );
+      const feeSummary = summariseFees(c.student.studentFees);
       return {
         id: c.student.id,
         name: c.student.user.fullName,
@@ -429,9 +438,10 @@ async function getParentStats(userId: string) {
         status: c.student.status,
         enrollmentStatus: c.student.enrollments[0]?.status ?? "N/A",
         fees: {
-          total: totalFees,
-          paid: totalPaid,
-          balance: totalFees - totalPaid,
+          total: feeSummary.billed,
+          paid: feeSummary.paid,
+          waived: feeSummary.waived,
+          balance: feeSummary.outstanding,
         },
       };
     }),

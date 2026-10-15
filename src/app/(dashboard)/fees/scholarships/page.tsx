@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Users } from "lucide-react";
 
 export const metadata = { title: "Scholarships" };
 
@@ -45,12 +45,20 @@ export default async function ScholarshipsPage() {
           </p>
         </div>
         {isAdmin && (
-          <Button asChild>
-            <Link href="/fees/scholarships/new">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create Scholarship
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/fees/scholarships/sponsor-class">
+                <Users className="mr-2 h-4 w-4" />
+                Sponsor a Class
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/fees/scholarships/new">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Create Scholarship
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
 

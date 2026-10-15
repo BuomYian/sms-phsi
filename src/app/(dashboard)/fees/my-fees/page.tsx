@@ -12,6 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
+import { summariseFees, SETTLED_STATUSES } from "@/lib/fees";
+import { STATUS_COLORS } from "@/constants";
 import { Award } from "lucide-react";
 
 export const metadata = { title: "My Fees" };
@@ -60,15 +62,17 @@ export default async function MyFeesPage() {
     );
   }
 
-  const totalBilled = student.studentFees.reduce(
-    (s: number, f: { amountCharged: unknown }) => s + Number(f.amountCharged),
-    0,
-  );
-  const totalPaid = student.studentFees.reduce(
-    (s: number, f: { amountPaid: unknown }) => s + Number(f.amountPaid),
-    0,
-  );
-  const balance = totalBilled - totalPaid;
+  const summary = summariseFees(student.studentFees);
+  const {
+    billed: totalBilled,
+    paid: totalPaid,
+    waived: totalWaived,
+    outstanding: balance,
+  } = summary;
+  // Drive the badge off what was actually waived rather than the award's
+  // terms: truthful for a fixed-amount award that happens to cover the whole
+  // fee, and immune to float equality on `percentage`.
+  const fullyCovered = totalBilled > 0 && balance === 0 && totalWaived > 0;
 
   return (
     <div className="space-y-6">
@@ -79,7 +83,13 @@ export default async function MyFeesPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div
+        className={
+          totalWaived > 0
+            ? "grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+            : "grid gap-4 md:grid-cols-3"
+        }
+      >
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -90,6 +100,20 @@ export default async function MyFeesPage() {
             <p className="text-2xl font-bold">{formatCurrency(totalBilled)}</p>
           </CardContent>
         </Card>
+        {totalWaived > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Sponsored
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-emerald-600">
+                {formatCurrency(totalWaived)}
+              </p>
+            </CardContent>
+          </Card>
+        )}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -109,7 +133,13 @@ export default async function MyFeesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-red-600">
+            <p
+              className={
+                balance > 0
+                  ? "text-2xl font-bold text-red-600"
+                  : "text-2xl font-bold text-green-600"
+              }
+            >
               {formatCurrency(balance)}
             </p>
           </CardContent>
@@ -135,7 +165,7 @@ export default async function MyFeesPage() {
                     ? ` · $${Number(sch.amount).toFixed(2)} fixed`
                     : ""}
                 </p>
-                {sch.percentage === 100 && (
+                {fullyCovered && (
                   <Badge
                     variant="default"
                     className="bg-green-600 hover:bg-green-700 mt-1"
@@ -160,6 +190,7 @@ export default async function MyFeesPage() {
                 <TableHead>Period</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead className="text-right">Charged</TableHead>
+                <TableHead className="text-right">Sponsored</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
                 <TableHead className="text-center">Status</TableHead>
@@ -178,15 +209,35 @@ export default async function MyFeesPage() {
                   <TableCell className="text-right font-mono">
                     {formatCurrency(Number(f.amountCharged))}
                   </TableCell>
+                  <TableCell className="text-right font-mono text-emerald-600">
+                    {(() => {
+                      const w =
+                        Number(f.amountCharged) -
+                        Number(f.amountPaid) -
+                        Number(f.balance);
+                      return w > 0 ? formatCurrency(w) : "—";
+                    })()}
+                  </TableCell>
                   <TableCell className="text-right font-mono text-green-600">
                     {formatCurrency(Number(f.amountPaid))}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-red-600">
+                  <TableCell
+                    className={
+                      Number(f.balance) > 0
+                        ? "text-right font-mono text-red-600"
+                        : "text-right font-mono text-muted-foreground"
+                    }
+                  >
                     {formatCurrency(Number(f.balance))}
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge
-                      variant={f.status === "PAID" ? "default" : "secondary"}
+                      variant={
+                        SETTLED_STATUSES.includes(f.status)
+                          ? "default"
+                          : "secondary"
+                      }
+                      className={STATUS_COLORS[f.status] ?? ""}
                     >
                       {f.status}
                     </Badge>
@@ -195,7 +246,7 @@ export default async function MyFeesPage() {
               ))}
               {student.studentFees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     No fees assigned.
                   </TableCell>
                 </TableRow>

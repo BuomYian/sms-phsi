@@ -14,16 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-
-const SCHOLARSHIP_TYPES = [
-  "Full Scholarship",
-  "Partial Scholarship",
-  "Need-Based Aid",
-  "Merit-Based",
-  "Government Sponsored",
-  "NGO Sponsored",
-  "Institutional",
-];
+import { SCHOLARSHIP_TYPES } from "@/constants";
 
 type Props = {
   students: {

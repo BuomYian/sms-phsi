@@ -43,6 +43,7 @@ interface AdminStats {
   finance: {
     totalBilled: number;
     totalCollected: number;
+    totalWaived: number;
     outstanding: number;
     pendingFees: number;
     collectionRate: number;
@@ -167,7 +168,9 @@ export function AdminDashboard({
               {formatCurrency(stats.finance.totalBilled)}
             </div>
             <p className="text-xs text-muted-foreground">
-              All student fees this period
+              {stats.finance.totalWaived > 0
+                ? `incl. ${formatCurrency(stats.finance.totalWaived)} sponsored`
+                : "All student fees this period"}
             </p>
           </CardContent>
         </Card>
@@ -183,7 +186,7 @@ export function AdminDashboard({
               {formatCurrency(stats.finance.totalCollected)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats.finance.collectionRate}% collection rate
+              {stats.finance.collectionRate}% of collectible fees
             </p>
           </CardContent>
         </Card>

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { SETTLED_STATUSES } from "@/lib/fees";
+import { STATUS_COLORS } from "@/constants";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -224,12 +226,13 @@ export function FeeStructureDetail({ feeStructure }: FeeStructureDetailProps) {
                   <TableCell className="text-center">
                     <Badge
                       variant={
-                        sf.status === "PAID"
+                        SETTLED_STATUSES.includes(sf.status)
                           ? "default"
                           : sf.status === "PARTIAL"
                             ? "secondary"
                             : "outline"
                       }
+                      className={STATUS_COLORS[sf.status] ?? ""}
                     >
                       {sf.status}
                     </Badge>

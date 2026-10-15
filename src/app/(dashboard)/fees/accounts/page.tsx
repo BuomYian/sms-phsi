@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +12,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
+import {
+  summariseFees,
+  deriveAccountStatus,
+  activeScholarshipWhere,
+  SCHOLARSHIP_PREFERENCE_ORDER,
+} from "@/lib/fees";
+import { STATUS_COLORS } from "@/constants";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { PlusCircle, Award } from "lucide-react";
@@ -23,6 +31,7 @@ export default async function StudentAccountsPage() {
     session?.role === "SUPER_ADMIN" ||
     session?.role === "ADMIN" ||
     session?.role === "FINANCE";
+  if (!isAdmin) redirect("/fees/my-fees");
 
   const now = new Date();
   const students = await db.student.findMany({
@@ -32,8 +41,10 @@ export default async function StudentAccountsPage() {
       program: { select: { name: true } },
       studentFees: true,
       scholarships: {
-        where: { startDate: { lte: now }, endDate: { gte: now } },
+        where: activeScholarshipWhere(now),
         select: { sponsor: true, percentage: true, amount: true, type: true },
+        // Deterministic once a student holds more than one award.
+        orderBy: SCHOLARSHIP_PREFERENCE_ORDER,
         take: 1,
       },
     },
@@ -71,6 +82,7 @@ export default async function StudentAccountsPage() {
                 <TableHead>Program</TableHead>
                 <TableHead>Sponsor</TableHead>
                 <TableHead className="text-right">Billed</TableHead>
+                <TableHead className="text-right">Sponsored</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
                 <TableHead className="text-center">Status</TableHead>
@@ -79,30 +91,13 @@ export default async function StudentAccountsPage() {
             </TableHeader>
             <TableBody>
               {students.map((s) => {
-                const billed = s.studentFees.reduce(
-                  (sum: number, f: { amountCharged: unknown }) =>
-                    sum + Number(f.amountCharged),
-                  0,
-                );
-                const paid = s.studentFees.reduce(
-                  (sum: number, f: { amountPaid: unknown }) =>
-                    sum + Number(f.amountPaid),
-                  0,
-                );
-                const balance = s.studentFees.reduce(
-                  (sum: number, f: { balance: unknown }) =>
-                    sum + Number(f.balance),
-                  0,
-                );
+                const summary = summariseFees(s.studentFees);
+                const { billed, paid, waived, outstanding: balance } = summary;
                 const scholarship = s.scholarships[0];
-                const statusLabel =
-                  balance <= 0
-                    ? "PAID"
-                    : paid > 0
-                      ? "PARTIAL"
-                      : billed > 0
-                        ? "UNPAID"
-                        : "NO FEES";
+                // Returns SPONSORED rather than PAID for a fully-waived
+                // account, so a payer is distinguishable from a sponsored
+                // student at a glance.
+                const statusLabel = deriveAccountStatus(summary);
 
                 return (
                   <TableRow key={s.id}>
@@ -137,21 +132,25 @@ export default async function StudentAccountsPage() {
                     <TableCell className="text-right font-mono">
                       {formatCurrency(billed)}
                     </TableCell>
+                    <TableCell className="text-right font-mono text-emerald-600">
+                      {waived > 0 ? formatCurrency(waived) : "—"}
+                    </TableCell>
                     <TableCell className="text-right font-mono text-green-600">
                       {formatCurrency(paid)}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-red-600">
+                    <TableCell
+                      className={
+                        balance > 0
+                          ? "text-right font-mono text-red-600"
+                          : "text-right font-mono text-muted-foreground"
+                      }
+                    >
                       {formatCurrency(balance)}
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge
-                        variant={
-                          statusLabel === "PAID"
-                            ? "default"
-                            : statusLabel === "PARTIAL"
-                              ? "secondary"
-                              : "outline"
-                        }
+                        variant="secondary"
+                        className={STATUS_COLORS[statusLabel] ?? ""}
                       >
                         {statusLabel}
                       </Badge>
@@ -166,7 +165,7 @@ export default async function StudentAccountsPage() {
               })}
               {students.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center">
+                  <TableCell colSpan={10} className="h-24 text-center">
                     No active students.
                   </TableCell>
                 </TableRow>

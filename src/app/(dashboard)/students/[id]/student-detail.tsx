@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { STATUS_COLORS } from "@/constants";
+import { summariseFees } from "@/lib/fees";
 import { getInitials, formatDate, formatCurrency } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -162,11 +163,16 @@ export function StudentDetail({
   const isFoundationYear = student.program?.code === "FOUND-Y1";
   const latestSelection = programSelections?.[0] ?? null;
 
-  const totalBilled = student.studentFees.reduce(
-    (sum, f) => sum + Number(f.amountCharged),
-    0,
-  );
-  const totalPaid = student.payments.reduce(
+  const feeSummary = summariseFees(student.studentFees);
+  const {
+    billed: totalBilled,
+    paid: totalPaid,
+    waived: totalWaived,
+    outstanding: totalBalance,
+  } = feeSummary;
+  // Cash banked, which can differ from allocated amountPaid when a payment
+  // exceeds what was owed. Kept separate rather than conflated.
+  const cashReceived = student.payments.reduce(
     (sum, p) => sum + Number(p.amount),
     0,
   );
@@ -372,7 +378,13 @@ export function StudentDetail({
 
         {/* Financial Tab */}
         <TabsContent value="financial" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div
+            className={
+              totalWaived > 0
+                ? "grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+                : "grid gap-4 md:grid-cols-3"
+            }
+          >
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Total Billed</CardDescription>
@@ -383,6 +395,18 @@ export function StudentDetail({
                 </p>
               </CardContent>
             </Card>
+            {totalWaived > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription>Sponsored</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold text-emerald-600">
+                    {formatCurrency(totalWaived)}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Total Paid</CardDescription>
@@ -391,6 +415,11 @@ export function StudentDetail({
                 <p className="text-2xl font-bold text-green-600">
                   {formatCurrency(totalPaid)}
                 </p>
+                {cashReceived !== totalPaid && (
+                  <p className="text-xs text-muted-foreground">
+                    {formatCurrency(cashReceived)} cash received
+                  </p>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -398,8 +427,14 @@ export function StudentDetail({
                 <CardDescription>Balance</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-red-600">
-                  {formatCurrency(totalBilled - totalPaid)}
+                <p
+                  className={
+                    totalBalance > 0
+                      ? "text-2xl font-bold text-red-600"
+                      : "text-2xl font-bold text-green-600"
+                  }
+                >
+                  {formatCurrency(totalBalance)}
                 </p>
               </CardContent>
             </Card>

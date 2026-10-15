@@ -52,6 +52,8 @@ interface StudentStats {
   finance: {
     totalFees: number;
     totalPaid: number;
+    totalWaived: number;
+    netBilled: number;
     balance: number;
     unpaidCount: number;
   };
@@ -154,7 +156,9 @@ export function StudentDashboard({
               description={
                 stats.finance.unpaidCount > 0
                   ? `${stats.finance.unpaidCount} unpaid`
-                  : "All fees cleared"
+                  : stats.finance.totalWaived > 0
+                    ? "Fully sponsored"
+                    : "All fees cleared"
               }
               icon={DollarSign}
             />
@@ -169,13 +173,27 @@ export function StudentDashboard({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div
+                className={
+                  stats.finance.totalWaived > 0
+                    ? "grid gap-4 md:grid-cols-4"
+                    : "grid gap-4 md:grid-cols-3"
+                }
+              >
                 <div>
                   <p className="text-sm text-muted-foreground">Total Fees</p>
                   <p className="text-lg font-semibold">
                     {formatCurrency(stats.finance.totalFees)}
                   </p>
                 </div>
+                {stats.finance.totalWaived > 0 && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Sponsored</p>
+                    <p className="text-lg font-semibold text-emerald-600">
+                      {formatCurrency(stats.finance.totalWaived)}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-sm text-muted-foreground">Total Paid</p>
                   <p className="text-lg font-semibold text-green-600">
@@ -184,26 +202,36 @@ export function StudentDashboard({
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Balance</p>
-                  <p className="text-lg font-semibold text-orange-500">
+                  <p
+                    className={
+                      stats.finance.balance > 0
+                        ? "text-lg font-semibold text-orange-500"
+                        : "text-lg font-semibold text-green-600"
+                    }
+                  >
                     {formatCurrency(stats.finance.balance)}
                   </p>
                 </div>
               </div>
-              {stats.finance.totalFees > 0 && (
+              {stats.finance.netBilled > 0 ? (
                 <div className="mt-3">
                   <Progress
                     value={Math.round(
-                      (stats.finance.totalPaid / stats.finance.totalFees) * 100,
+                      (stats.finance.totalPaid / stats.finance.netBilled) * 100,
                     )}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     {Math.round(
-                      (stats.finance.totalPaid / stats.finance.totalFees) * 100,
+                      (stats.finance.totalPaid / stats.finance.netBilled) * 100,
                     )}
-                    % paid
+                    % of payable fees settled
                   </p>
                 </div>
-              )}
+              ) : stats.finance.totalWaived > 0 ? (
+                <p className="mt-3 text-xs text-emerald-600">
+                  Your fees are fully covered by a scholarship — nothing to pay.
+                </p>
+              ) : null}
             </CardContent>
           </Card>
 

@@ -1,22 +1,31 @@
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+import { summariseFeeAggregate } from "@/lib/fees";
 
 export const metadata = { title: "Fee Reports" };
 
 export default async function FeeReportsPage() {
-  const [billedAgg, paidAgg, paymentsCount, studentsWithBalance] =
+  const [feeAgg, cashAgg, paymentsCount, studentsWithBalance] =
     await Promise.all([
-      db.studentFee.aggregate({ _sum: { amountCharged: true } }),
-      db.studentFee.aggregate({ _sum: { amountPaid: true } }),
+      db.studentFee.aggregate({
+        _sum: { amountCharged: true, amountPaid: true, balance: true },
+      }),
+      db.payment.aggregate({ _sum: { amount: true } }),
       db.payment.count(),
-      db.studentFee.count({ where: { balance: { gt: 0 } } }),
+      // Count STUDENTS, not fee rows — this figure is labelled "Students with
+      // Balance" and is the divisor for the average.
+      db.student.count({
+        where: { studentFees: { some: { balance: { gt: 0 } } } },
+      }),
     ]);
 
-  const billed = Number(billedAgg._sum.amountCharged ?? 0);
-  const paid = Number(paidAgg._sum.amountPaid ?? 0);
-  const outstanding = billed - paid;
-  const collectionRate = billed > 0 ? ((paid / billed) * 100).toFixed(1) : "0";
+  const summary = summariseFeeAggregate(feeAgg._sum);
+  const { billed, paid, waived, outstanding, netBilled } = summary;
+  const collectionRate = summary.collectionRate.toFixed(1);
+  // Cash banked that could not be allocated to any fee — normal for a fully
+  // sponsored student, whose fees all have a zero balance.
+  const unallocated = Number(cashAgg._sum.amount ?? 0) - paid;
 
   // Payment method breakdown
   const paymentsByMethod = await db.payment.groupBy({
@@ -34,7 +43,7 @@ export default async function FeeReportsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -43,6 +52,18 @@ export default async function FeeReportsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{formatCurrency(billed)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Sponsored
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-emerald-600">
+              {formatCurrency(waived)}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -77,6 +98,9 @@ export default async function FeeReportsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{collectionRate}%</p>
+            <p className="text-xs text-muted-foreground">
+              of {formatCurrency(netBilled)} collectible
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -138,6 +162,16 @@ export default async function FeeReportsPage() {
                     : "—"}
                 </span>
               </div>
+              {unallocated !== 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Unallocated payments
+                  </span>
+                  <span className="font-mono font-medium text-amber-600">
+                    {formatCurrency(unallocated)}
+                  </span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

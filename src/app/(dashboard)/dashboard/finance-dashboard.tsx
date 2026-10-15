@@ -23,7 +23,10 @@ import { type SessionUser } from "@/types";
 interface FinanceStats {
   totalBilled: number;
   totalCollected: number;
-  pendingPayments: number;
+  totalWaived: number;
+  outstanding: number;
+  netBilled: number;
+  collectionRate: number;
   unpaidStudents: number;
   recentPayments: {
     id: string;
@@ -84,10 +87,7 @@ export function FinanceDashboard({
   shared: SharedData;
   user: SessionUser;
 }) {
-  const collectionRate =
-    stats.totalBilled > 0
-      ? Math.round((stats.totalCollected / stats.totalBilled) * 100)
-      : 0;
+  const collectionRate = Math.round(stats.collectionRate);
 
   const currentSemester = shared.academic?.semesters.find((s) => s.isCurrent);
 
@@ -121,13 +121,13 @@ export function FinanceDashboard({
         />
         <StatCard
           title="Outstanding"
-          value={formatCurrency(stats.totalBilled - stats.totalCollected)}
+          value={formatCurrency(stats.outstanding)}
           icon={AlertTriangle}
         />
         <StatCard
           title="Unpaid Students"
           value={stats.unpaidStudents}
-          description={`${stats.pendingPayments} pending records`}
+          description={`${formatCurrency(stats.totalWaived)} sponsored`}
           icon={Receipt}
         />
       </div>
@@ -144,11 +144,11 @@ export function FinanceDashboard({
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>Collected: {formatCurrency(stats.totalCollected)}</span>
-              <span>Target: {formatCurrency(stats.totalBilled)}</span>
+              <span>Collectible: {formatCurrency(stats.netBilled)}</span>
             </div>
             <Progress value={collectionRate} className="h-3" />
             <p className="text-xs text-muted-foreground text-center">
-              {collectionRate}% of total fees collected
+              {collectionRate}% of collectible fees collected
             </p>
           </div>
         </CardContent>

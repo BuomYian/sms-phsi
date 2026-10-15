@@ -391,4 +391,27 @@ export const STATUS_COLORS: Record<string, string> = {
   ABSENT: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
   LATE: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
   EXCUSED: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+  // Fee statuses. These had no entries at all, so fee badges across the
+  // finance pages rendered unstyled.
+  UNPAID: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+  PARTIAL:
+    "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
+  PAID: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+  WAIVED:
+    "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300",
+  // Account-level roll-up from deriveAccountStatus()
+  SPONSORED:
+    "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300",
+  "NO FEES": "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
 };
+
+/** Preset scholarship types, shared by the single and bulk scholarship forms. */
+export const SCHOLARSHIP_TYPES = [
+  "Full Scholarship",
+  "Partial Scholarship",
+  "Need-Based Aid",
+  "Merit-Based",
+  "Government Sponsored",
+  "NGO Sponsored",
+  "Institutional",
+];
