@@ -4,6 +4,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import WeeklyGrid from "../timetable/weekly-grid";
 import {
   BookOpen,
   Clock,
@@ -16,8 +17,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { type SessionUser } from "@/types";
-
-const DAY_NAMES = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 interface TimetableItem {
   id: string;
@@ -135,54 +134,40 @@ export function InstructorDashboard({
             />
           </div>
 
-          {/* Timetable + Quick Actions */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Calendar className="h-4 w-4" />
-                  My Timetable
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {stats.timetable.length > 0 ? (
-                  <div className="space-y-2">
-                    {stats.timetable.map((t) => (
-                      <div
-                        key={t.id}
-                        className="flex items-center justify-between rounded-lg border p-2 text-sm"
-                      >
-                        <div>
-                          <span className="font-medium">{t.subjectCode}</span>
-                          <span className="ml-1 text-muted-foreground">
-                            {t.subjectName}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Badge variant="outline">
-                            {DAY_NAMES[t.dayOfWeek]}
-                          </Badge>
-                          <span>
-                            {t.startTime}–{t.endTime}
-                          </span>
-                          <span>Rm {t.room}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No timetable entries for the current semester.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+          {/* Weekly teaching schedule */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Calendar className="h-4 w-4" />
+                My Timetable
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {stats.timetable.length > 0 ? (
+                <WeeklyGrid
+                  compact
+                  entries={stats.timetable.map((t) => ({
+                    id: t.id,
+                    dayOfWeek: t.dayOfWeek,
+                    startTime: t.startTime,
+                    endTime: t.endTime,
+                    room: t.room,
+                    subject: { name: t.subjectName, code: t.subjectCode },
+                  }))}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No timetable entries for the current semester.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-2 sm:grid-cols-3">
                 <Button variant="outline" className="justify-start" asChild>
                   <Link href="/attendance">
                     <ClipboardCheck className="mr-2 h-4 w-4" />
@@ -195,15 +180,14 @@ export function InstructorDashboard({
                     Enter Grades
                   </Link>
                 </Button>
-                <Button variant="outline" className="justify-start" asChild>
-                  <Link href="/timetable">
-                    <Clock className="mr-2 h-4 w-4" />
-                    View Full Timetable
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+              <Button variant="outline" className="justify-start" asChild>
+                <Link href="/timetable">
+                  <Clock className="mr-2 h-4 w-4" />
+                  View Full Timetable
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
 
           {/* Academic Calendar + Announcements */}
           <div className="grid gap-4 md:grid-cols-2">

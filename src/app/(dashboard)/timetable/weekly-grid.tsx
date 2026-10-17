@@ -15,22 +15,12 @@ type TimetableEntry = {
     code: string;
     program?: { name: string; code: string } | null;
   };
-  instructor: { user: { fullName: string } };
+  /** Omitted where the viewer is the instructor — their own name adds nothing. */
+  instructor?: { user: { fullName: string } } | null;
 };
 
-const TIME_SLOTS = [
-  "07:00",
-  "08:00",
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-];
+const DEFAULT_START_HOUR = 7;
+const DEFAULT_END_HOUR = 18;
 
 const SLOT_COLORS = [
   "bg-blue-100 border-blue-300 text-blue-900 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200",
@@ -48,16 +38,41 @@ function timeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
+/**
+ * Bound the grid to the hours actually taught rather than a fixed 07:00–18:00
+ * window, which otherwise renders several permanently empty rows.
+ */
+function hourRange(entries: { startTime: string; endTime: string }[]) {
+  if (entries.length === 0) {
+    return { startHour: DEFAULT_START_HOUR, endHour: DEFAULT_END_HOUR };
+  }
+  let min = 24;
+  let max = 0;
+  for (const e of entries) {
+    min = Math.min(min, Math.floor(timeToMinutes(e.startTime) / 60));
+    max = Math.max(max, Math.ceil(timeToMinutes(e.endTime) / 60));
+  }
+  return { startHour: Math.max(0, min), endHour: Math.min(24, Math.max(max, min + 1)) };
+}
+
 export default function WeeklyGrid({
   entries,
   showProgram = false,
+  compact = false,
 }: {
   entries: TimetableEntry[];
   showProgram?: boolean;
+  /** Shorter rows, for embedding in a dashboard card. */
+  compact?: boolean;
 }) {
-  const startOfDay = timeToMinutes("07:00");
-  const endOfDay = timeToMinutes("18:00");
+  const { startHour, endHour } = hourRange(entries);
+  const timeSlots = Array.from({ length: endHour - startHour }, (_, i) =>
+    `${String(startHour + i).padStart(2, "0")}:00`,
+  );
+  const startOfDay = startHour * 60;
+  const endOfDay = endHour * 60;
   const totalMinutes = endOfDay - startOfDay;
+  const rowHeight = compact ? "h-12" : "h-16";
 
   // Assign a consistent color per subject code
   const subjectColorMap = new Map<string, string>();
@@ -88,10 +103,13 @@ export default function WeeklyGrid({
         <div className="grid grid-cols-[80px_repeat(6,1fr)]">
           {/* Time column */}
           <div className="border-r">
-            {TIME_SLOTS.map((time) => (
+            {timeSlots.map((time) => (
               <div
                 key={time}
-                className="flex h-16 items-start justify-center border-b p-1 text-xs text-muted-foreground"
+                className={cn(
+                  "flex items-start justify-center border-b p-1 text-xs text-muted-foreground",
+                  rowHeight,
+                )}
               >
                 {time}
               </div>
@@ -102,8 +120,8 @@ export default function WeeklyGrid({
           {DAYS_OF_WEEK.map((day, dayIndex) => (
             <div key={day} className="relative border-r last:border-r-0">
               {/* Background grid lines */}
-              {TIME_SLOTS.map((time) => (
-                <div key={time} className="h-16 border-b" />
+              {timeSlots.map((time) => (
+                <div key={time} className={cn("border-b", rowHeight)} />
               ))}
 
               {/* Entries positioned absolutely */}
@@ -142,9 +160,11 @@ export default function WeeklyGrid({
                       <p className="truncate leading-tight opacity-80">
                         {entry.subject.name}
                       </p>
-                      <p className="truncate leading-tight opacity-70">
-                        {entry.instructor.user.fullName}
-                      </p>
+                      {entry.instructor && (
+                        <p className="truncate leading-tight opacity-70">
+                          {entry.instructor.user.fullName}
+                        </p>
+                      )}
                       <p className="flex items-center gap-0.5 truncate leading-tight opacity-60">
                         <MapPin className="h-2.5 w-2.5" />
                         {entry.room}
