@@ -57,7 +57,6 @@ export default async function TimetablePage({
   const currentSemester = semesters.find((s) => s.isCurrent);
   const activeSemesterId =
     params.semester || studentSemesterId || currentSemester?.id || "";
-  const activeSemester = semesters.find((s) => s.id === activeSemesterId);
 
   // For admins: fetch classes to filter by
   let classes: {
@@ -66,9 +65,14 @@ export default async function TimetablePage({
     programId: string;
     yearLevel: number;
   }[] = [];
-  if (isAdmin && activeSemester) {
+  if (isAdmin && activeSemesterId) {
+    // List classes that actually have subjects offered in THIS semester, not
+    // classes whose academic year happens to match it. A cohort can study in a
+    // semester belonging to a different academic year — Year 3 sits in AY2026
+    // but studies in AY2026/27 Semester 1 — and matching on academic year left
+    // the filter completely empty for them.
     classes = await db.academicClass.findMany({
-      where: { academicYearId: activeSemester.academicYear.id },
+      where: { subjectOfferings: { some: { semesterId: activeSemesterId } } },
       select: { id: true, name: true, programId: true, yearLevel: true },
       orderBy: [{ program: { name: "asc" } }, { yearLevel: "asc" }],
     });
@@ -85,7 +89,11 @@ export default async function TimetablePage({
   // Admin filtering by class: use SubjectOffering to get the exact subjects for this class
   if (isAdmin && activeClass) {
     const offerings = await db.subjectOffering.findMany({
-      where: { classId: activeClass.id },
+      // Scope to the active semester: the (classId, subjectId) uniqueness is
+      // semester-agnostic, so without this a COMPLETED offering from an
+      // earlier semester widens the subject set and pulls in another
+      // cohort's slots.
+      where: { classId: activeClass.id, semesterId: activeSemesterId },
       select: { subjectId: true },
     });
     where.subjectId = { in: offerings.map((o) => o.subjectId) };
