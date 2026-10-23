@@ -24,13 +24,33 @@ export default async function GradesPage() {
   const isInstructor = session.role === "INSTRUCTOR";
   const isStudent = session.role === "STUDENT";
 
+  // A student's exam count must match what /grades/exams actually shows them,
+  // otherwise the badge promises exams belonging to another cohort.
+  let examWhere: Record<string, unknown> = { date: { gte: new Date() } };
+  if (isStudent) {
+    const student = await db.student.findFirst({
+      where: { userId: session.id },
+      select: {
+        classStudents: {
+          where: { status: "ACTIVE" },
+          select: { classId: true },
+        },
+      },
+    });
+    const classIds = student?.classStudents.map((c) => c.classId) ?? [];
+    examWhere = {
+      ...examWhere,
+      OR: [{ classId: { in: classIds } }, { classId: null }],
+    };
+  }
+
   // Summary stats
   const [totalGrades, submittedGrades, approvedGrades, upcomingExams] =
     await Promise.all([
       db.grade.count(),
       db.grade.count({ where: { status: "SUBMITTED" } }),
       db.grade.count({ where: { status: "APPROVED" } }),
-      db.examSchedule.count({ where: { date: { gte: new Date() } } }),
+      db.examSchedule.count({ where: examWhere }),
     ]);
 
   type Section = {

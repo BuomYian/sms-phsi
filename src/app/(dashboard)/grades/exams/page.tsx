@@ -23,7 +23,55 @@ export default async function ExamSchedulePage() {
 
   const isAdmin = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
 
+  // Scope to the viewer's cohort. classId is recorded on every exam but was
+  // never filtered on, so a Year 1 Nursing student saw the Midwifery timetable
+  // too. A null classId means institution-wide and stays visible to everyone.
+  const where: Record<string, unknown> = {};
+
+  if (session.role === "STUDENT") {
+    const student = await db.student.findFirst({
+      where: { userId: session.id },
+      select: {
+        classStudents: {
+          where: { status: "ACTIVE" },
+          select: { classId: true },
+        },
+      },
+    });
+    const classIds = student?.classStudents.map((c) => c.classId) ?? [];
+    where.OR = [{ classId: { in: classIds } }, { classId: null }];
+  } else if (session.role === "INSTRUCTOR") {
+    const staff = await db.staff.findFirst({
+      where: { userId: session.id },
+      select: { id: true },
+    });
+    if (staff) {
+      // Subjects they are assigned to teach, or scheduled against.
+      const [assigned, scheduled] = await Promise.all([
+        db.subjectInstructor.findMany({
+          where: { staffId: staff.id },
+          select: { subjectId: true },
+        }),
+        db.timetableEntry.findMany({
+          where: { instructorId: staff.id },
+          select: { subjectId: true },
+          distinct: ["subjectId"],
+        }),
+      ]);
+      const subjectIds = [
+        ...new Set([
+          ...assigned.map((a) => a.subjectId),
+          ...scheduled.map((s) => s.subjectId),
+        ]),
+      ];
+      where.subjectId = { in: subjectIds };
+    } else {
+      where.subjectId = { in: [] };
+    }
+  }
+
   const exams = await db.examSchedule.findMany({
+    where,
     include: {
       subject: { select: { name: true, code: true } },
       semester: {
