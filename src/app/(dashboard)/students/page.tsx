@@ -25,25 +25,50 @@ export default async function StudentsPage() {
   const isAdmin = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
   const isInstructor = session.role === "INSTRUCTOR";
 
-  // --- Instructor: only fetch students in programs they teach ---
-  let instructorProgramIds: string[] = [];
+  // --- Instructor: only the students they actually teach ---
+  // Scoping by the subject's PROGRAMME breaks whenever a shared subject sits
+  // under a different programme from the students taking it — the common
+  // first-year subjects are filed under Foundation Year while the students
+  // belong to Nursing or Midwifery. Scope by enrolment instead, which is
+  // exact: students holding a course enrolment in a subject this instructor
+  // teaches, whether assigned to it or timetabled against it.
+  let instructorStudentIds: string[] | null = null;
   if (isInstructor) {
     const staff = await db.staff.findFirst({
       where: { userId: session.id },
       select: { id: true },
     });
     if (staff) {
-      const assignments = await db.subjectInstructor.findMany({
-        where: { staffId: staff.id },
-        select: { subject: { select: { programId: true } } },
-      });
-      instructorProgramIds = [
-        ...new Set(assignments.map((a) => a.subject.programId)),
+      const [assigned, scheduled] = await Promise.all([
+        db.subjectInstructor.findMany({
+          where: { staffId: staff.id },
+          select: { subjectId: true },
+        }),
+        db.timetableEntry.findMany({
+          where: { instructorId: staff.id },
+          select: { subjectId: true },
+          distinct: ["subjectId"],
+        }),
+      ]);
+      const subjectIds = [
+        ...new Set([
+          ...assigned.map((a) => a.subjectId),
+          ...scheduled.map((s) => s.subjectId),
+        ]),
       ];
+      const enrolled = await db.courseEnrollment.findMany({
+        where: { subjectId: { in: subjectIds } },
+        select: { enrollment: { select: { studentId: true } } },
+      });
+      instructorStudentIds = [
+        ...new Set(enrolled.map((e) => e.enrollment.studentId)),
+      ];
+    } else {
+      instructorStudentIds = [];
     }
   }
 
-  const where = isInstructor ? { programId: { in: instructorProgramIds } } : {};
+  const where = instructorStudentIds ? { id: { in: instructorStudentIds } } : {};
 
   const students = await db.student.findMany({
     where,
@@ -78,6 +103,13 @@ export default async function StudentsPage() {
       a[0].localeCompare(b[0]),
     );
 
+    // Distinct programmes across the students in scope — replaces the old
+    // count derived from subject assignments, which no longer matches now
+    // that shared subjects and their students sit under different programmes.
+    const programCount = new Set(
+      students.map((s) => s.program?.code).filter(Boolean),
+    ).size;
+
     return (
       <div className="space-y-6">
         <div>
@@ -111,12 +143,10 @@ export default async function StudentsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Programs</CardTitle>
-              <Badge variant="secondary">{instructorProgramIds.length}</Badge>
+              <Badge variant="secondary">{programCount}</Badge>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {instructorProgramIds.length}
-              </div>
+              <div className="text-2xl font-bold">{programCount}</div>
             </CardContent>
           </Card>
         </div>

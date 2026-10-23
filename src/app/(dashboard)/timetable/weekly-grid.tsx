@@ -13,7 +13,6 @@ type TimetableEntry = {
   subject: {
     name: string;
     code: string;
-    program?: { name: string; code: string } | null;
   };
   /** Omitted where the viewer is the instructor — their own name adds nothing. */
   instructor?: { user: { fullName: string } } | null;
@@ -57,11 +56,9 @@ function hourRange(entries: { startTime: string; endTime: string }[]) {
 
 export default function WeeklyGrid({
   entries,
-  showProgram = false,
   compact = false,
 }: {
   entries: TimetableEntry[];
-  showProgram?: boolean;
   /** Shorter rows, for embedding in a dashboard card. */
   compact?: boolean;
 }) {
@@ -150,12 +147,6 @@ export default function WeeklyGrid({
                     >
                       <p className="font-semibold leading-tight truncate">
                         {entry.subject.code}
-                        {showProgram && entry.subject.program && (
-                          <span className="font-normal opacity-70">
-                            {" "}
-                            ({entry.subject.program.code})
-                          </span>
-                        )}
                       </p>
                       <p className="truncate leading-tight opacity-80">
                         {entry.subject.name}

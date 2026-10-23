@@ -331,10 +331,6 @@ export default async function TimetablePage({
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {entry.subject.code}
-                                {(isInstructor || isAdmin) &&
-                                  entry.subject.program && (
-                                    <span> · {entry.subject.program.code}</span>
-                                  )}
                               </p>
                             </div>
                           </TableCell>
@@ -370,7 +366,7 @@ export default async function TimetablePage({
           ))}
         </div>
       ) : (
-        <WeeklyGrid entries={entries} showProgram={isInstructor || isAdmin} />
+        <WeeklyGrid entries={entries} />
       )}
     </div>
   );
